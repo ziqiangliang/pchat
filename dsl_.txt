@@ -1,0 +1,67 @@
+{
+  "title": "计算机中的与运算和或运算",
+  "meta": { "domain": "software_engineering" },
+  "nodes": [
+    { "id": "inputA", "label": "输入 A", "type": "dataPoint", "x": 150, "y": 150 },
+    { "id": "inputB", "label": "输入 B", "type": "dataPoint", "x": 150, "y": 350 },
+    { "id": "andGate", "label": "AND", "type": "process", "x": 350, "y": 200 },
+    { "id": "orGate", "label": "OR", "type": "process", "x": 350, "y": 300 },
+    { "id": "outputAnd", "label": "输出", "type": "dataPoint", "x": 550, "y": 200 },
+    { "id": "outputOr", "label": "输出", "type": "dataPoint", "x": 550, "y": 300 },
+    { "id": "trueA", "label": "真 (1)", "type": "annotation", "x": 150, "y": 120, "target": { "nodeId": "inputA" } },
+    { "id": "trueB", "label": "真 (1)", "type": "annotation", "x": 150, "y": 380, "target": { "nodeId": "inputB" } },
+    { "id": "falseA", "label": "假 (0)", "type": "annotation", "x": 150, "y": 120, "target": { "nodeId": "inputA" } },
+    { "id": "falseB", "label": "假 (0)", "type": "annotation", "x": 150, "y": 380, "target": { "nodeId": "inputB" } },
+    { "id": "resultAndTrue", "label": "真 (1)", "type": "annotation", "x": 580, "y": 180, "target": { "nodeId": "outputAnd" } },
+    { "id": "resultAndFalse", "label": "假 (0)", "type": "annotation", "x": 580, "y": 180, "target": { "nodeId": "outputAnd" } },
+    { "id": "resultOrTrue", "label": "真 (1)", "type": "annotation", "x": 580, "y": 280, "target": { "nodeId": "outputOr" } },
+    { "id": "resultOrFalse", "label": "假 (0)", "type": "annotation", "x": 580, "y": 280, "target": { "nodeId": "outputOr" } },
+    { "id": "ruleAnd", "label": "规则：全真为真", "type": "annotation", "x": 350, "y": 100, "target": { "nodeId": "andGate" } },
+    { "id": "ruleOr", "label": "规则：有真为真", "type": "annotation", "x": 350, "y": 400, "target": { "nodeId": "orGate" } }
+  ],
+  "edges": [
+    { "from": "inputA", "to": "andGate", "type": "arrow" },
+    { "from": "inputB", "to": "andGate", "type": "arrow" },
+    { "from": "andGate", "to": "outputAnd", "type": "arrow" },
+    { "from": "inputA", "to": "orGate", "type": "arrow" },
+    { "from": "inputB", "to": "orGate", "type": "arrow" },
+    { "from": "orGate", "to": "outputOr", "type": "arrow" }
+  ],
+  "steps": [
+    { "text": "在计算机逻辑中，我们处理的是布尔值：真（1）和假（0）。我们先看两个输入：A 和 B。", "add": [
+      { "id": "inputA", "label": "输入 A", "type": "dataPoint", "x": 150, "y": 150 },
+      { "id": "inputB", "label": "输入 B", "type": "dataPoint", "x": 150, "y": 350 }
+    ] },
+    { "text": "这是两种最基本的逻辑运算单元：与门（AND）和或门（OR）。", "add": [
+      { "id": "andGate", "label": "AND", "type": "process", "x": 350, "y": 200 },
+      { "id": "orGate", "label": "OR", "type": "process", "x": 350, "y": 300 }
+    ] },
+    { "text": "它们分别会产生一个输出。", "add": [
+      { "id": "outputAnd", "label": "输出", "type": "dataPoint", "x": 550, "y": 200 },
+      { "id": "outputOr", "label": "输出", "type": "dataPoint", "x": 550, "y": 300 }
+    ] },
+    { "text": "首先，我们连接输入到与门（AND）。", "connect": [
+      { "from": "inputA", "to": "andGate", "type": "arrow" },
+      { "from": "inputB", "to": "andGate", "type": "arrow" }
+    ] },
+    { "text": "然后，与门的输出连接到它的结果。", "connect": [{ "from": "andGate", "to": "outputAnd", "type": "arrow" }] },
+    { "text": "同样，连接输入到或门（OR）。", "connect": [
+      { "from": "inputA", "to": "orGate", "type": "arrow" },
+      { "from": "inputB", "to": "orGate", "type": "arrow" }
+    ] },
+    { "text": "或门的输出也连接到它的结果。", "connect": [{ "from": "orGate", "to": "outputOr", "type": "arrow" }] },
+    { "text": "我们先看与运算（AND）的规则：只有当所有输入都为真时，输出才为真。可以记作“全真为真”。", "add": [{ "id": "ruleAnd", "label": "规则：全真为真", "type": "annotation", "x": 350, "y": 100, "target": { "nodeId": "andGate" } }] },
+    { "text": "让我们验证一下。假设输入 A 和 B 都是真（1）。", "add": [
+      { "id": "trueA", "label": "真 (1)", "type": "annotation", "x": 150, "y": 120, "target": { "nodeId": "inputA" } },
+      { "id": "trueB", "label": "真 (1)", "type": "annotation", "x": 150, "y": 380, "target": { "nodeId": "inputB" } }
+    ] },
+    { "text": "根据“全真为真”的规则，与门的输出应该是真（1）。", "add": [{ "id": "resultAndTrue", "label": "真 (1)", "type": "annotation", "x": 580, "y": 180, "target": { "nodeId": "outputAnd" } }], "highlight": ["andGate", "outputAnd"] },
+    { "text": "现在看或运算（OR）的规则：只要有一个输入为真，输出就为真。可以记作“有真为真”。", "add": [{ "id": "ruleOr", "label": "规则：有真为真", "type": "annotation", "x": 350, "y": 400, "target": { "nodeId": "orGate" } }] },
+    { "text": "同样验证一下。即使输入 A 和 B 中有一个是假（0），另一个是真（1）。", "add": [
+      { "id": "falseA", "label": "假 (0)", "type": "annotation", "x": 150, "y": 120, "target": { "nodeId": "inputA" } },
+      { "id": "trueB", "label": "真 (1)", "type": "annotation", "x": 150, "y": 380, "target": { "nodeId": "inputB" } }
+    ] },
+    { "text": "根据“有真为真”的规则，或门的输出仍然为真（1）。", "add": [{ "id": "resultOrTrue", "label": "真 (1)", "type": "annotation", "x": 580, "y": 280, "target": { "nodeId": "outputOr" } }], "highlight": ["orGate", "outputOr"] },
+    { "text": "总结：与运算（AND）要求所有条件都满足；或运算（OR）只要求至少一个条件满足。它们是计算机逻辑判断的基石。", "highlight": ["andGate", "orGate"] }
+  ]
+}
