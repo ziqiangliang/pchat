@@ -312,7 +312,8 @@ function App() {
       timestamp: Date.now()
     };
 
-    setChatHistory([...chatHistory, newUserMessage]);
+    // 确保chatHistory是一个数组，使用函数式更新
+    setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage]);
     setUserInput('');
     setLoadingStartTime(Date.now());
     setIsLoading(true);
@@ -328,6 +329,7 @@ function App() {
         },
         body: JSON.stringify({
           model: 'deepseek-chat',
+          stream: true, // 启用流式返回
           messages: [
             {
               role: 'system',
@@ -594,7 +596,7 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
 4. 节点和边可以预先定义，也可以在 steps 中动态添加
 5. 优先使用 steps 中的 add/connect，保持步骤的渐进性`
             },
-            ...chatHistory.map(msg => ({
+            ...(Array.isArray(chatHistory) ? chatHistory : []).map(msg => ({
               role: msg.role,
               content: msg.content
             })),
@@ -610,41 +612,94 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
         throw new Error(`API request failed: ${response.status}`);
       }
 
-      const data = await response.json();
-      const responseContent = data.choices[0]?.message?.content || '';
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let actualContent = '';
+        let isDslParsed = false;
+        let assistantMessageId: string | null = null;
 
-      let parsedDsl: DSL | null = null;
-      try {
-        const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsedDsl = JSON.parse(jsonMatch[0]);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // 处理SSE格式
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                break;
+              }
+              try {
+                const chunkData = JSON.parse(data);
+                const content = chunkData.choices[0]?.delta?.content || '';
+                if (content) {
+                  // 实时更新消息
+                  if (!assistantMessageId) {
+                    // 初始化实际内容
+                    actualContent = content;
+                    // 创建新的助手消息
+                    const newAssistantMessage: ChatMessage = {
+                      role: 'assistant',
+                      content: content,
+                      timestamp: Date.now()
+                    };
+                    setChatHistory(prev => [...prev, newAssistantMessage]);
+                    assistantMessageId = newAssistantMessage.timestamp.toString();
+                  } else {
+                    // 累积实际内容
+                    actualContent += content;
+                    // 更新现有消息
+                    setChatHistory(prev => {
+                      const updatedHistory = [...prev];
+                      const assistantMsgIndex = updatedHistory.findIndex(
+                        msg => msg.role === 'assistant' && msg.timestamp.toString() === assistantMessageId
+                      );
+                      if (assistantMsgIndex !== -1) {
+                        updatedHistory[assistantMsgIndex] = {
+                          ...updatedHistory[assistantMsgIndex],
+                          content: actualContent
+                        };
+                      }
+                      return updatedHistory;
+                    });
+                  }
+                  
+                  // 尝试解析JSON
+                  const jsonMatch = actualContent.match(/\{[\s\S]*\}/);
+                  if (jsonMatch && !isDslParsed) {
+                    try {
+                      const parsedDsl = JSON.parse(jsonMatch[0]);
+                      isDslParsed = true;
+                      
+                      // 初始化状态
+                      setNodes(new Map());
+                      setEdges([]);
+                      setVisibleNodeIds(new Set());
+                      setVisibleEdgeIds(new Set());
+                      setHighlightedNodes(new Set());
+                      setHighlightedEdges(new Set());
+                      setCurrentStep(-1);
+                      setCurrentText('');
+                      setActiveTimelineEvents([]);
+                      setTimelineAnimations(new Map());
+                      
+                      setDsl(parsedDsl);
+                      playAllSteps(parsedDsl);
+                    } catch (e) {
+                      // 继续等待更多数据
+                    }
+                  }
+                }
+              } catch (e) {
+                // 忽略解析错误
+              }
+            }
+          }
         }
-      } catch (e) {
-        console.error('JSON解析失败:', e);
-      }
-
-      const newAssistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: responseContent,
-        timestamp: Date.now()
-      };
-
-      setChatHistory([...chatHistory, newUserMessage, newAssistantMessage]);
-
-      if (parsedDsl) {
-        setNodes(new Map());
-        setEdges([]);
-        setVisibleNodeIds(new Set());
-        setVisibleEdgeIds(new Set());
-        setHighlightedNodes(new Set());
-        setHighlightedEdges(new Set());
-        setCurrentStep(-1);
-        setCurrentText('');
-        setActiveTimelineEvents([]);
-        setTimelineAnimations(new Map());
-        
-        setDsl(parsedDsl);
-        playAllSteps(parsedDsl);
       }
 
       setIsLoading(false);
@@ -657,7 +712,7 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
         content: '抱歉，发生了错误。请稍后再试。',
         timestamp: Date.now()
       };
-      setChatHistory([...chatHistory, newUserMessage, errorMessage]);
+      setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage, errorMessage]);
       setIsLoading(false);
       setLoadingStartTime(null);
     }

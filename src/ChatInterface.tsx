@@ -52,14 +52,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const lastAssistantIndex = chatHistory.length - 1 - [...chatHistory].reverse().findIndex(m => m.role === 'assistant');
+  // 确保chatHistory是一个数组
+  const safeChatHistory = Array.isArray(chatHistory) ? chatHistory : [];
+  const lastAssistantIndex = safeChatHistory.length > 0 
+    ? safeChatHistory.length - 1 - [...safeChatHistory].reverse().findIndex(m => m.role === 'assistant')
+    : -1;
 
   return (
     <div className="content-area">
       <div className="chat-history">
-        {chatHistory.map((message, index) => (
+        {safeChatHistory.map((message, index) => (
           <div
-            key={index}
+            key={message.timestamp}
             className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
           >
             <p>{message.content}</p>

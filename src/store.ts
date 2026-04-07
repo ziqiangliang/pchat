@@ -19,7 +19,7 @@ interface AppState {
   userInput: string;
   setUserInput: (input: string) => void;
   chatHistory: Message[];
-  setChatHistory: (history: Message[]) => void;
+  setChatHistory: (history: Message[] | ((prev: Message[]) => Message[])) => void;
 
   // 画布状态
   canvasState: CanvasState;
@@ -38,7 +38,11 @@ export const useStore = create<AppState>((set) => ({
   userInput: '',
   setUserInput: (input) => set({ userInput: input }),
   chatHistory: [],
-  setChatHistory: (history) => set({ chatHistory: history }),
+  setChatHistory: (historyOrUpdater) => set((state) => ({
+    chatHistory: typeof historyOrUpdater === 'function' 
+      ? historyOrUpdater(state.chatHistory) 
+      : historyOrUpdater
+  })),
 
   // 画布状态
   canvasState: {
