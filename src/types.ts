@@ -103,8 +103,6 @@ export interface Meta {
 export interface DSL {
   title?: string;
   meta?: Meta;
-  nodes?: Node[];
-  edges?: Edge[];
   layoutHints?: LayoutHints;
   steps: Step[];
 }

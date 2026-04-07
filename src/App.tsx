@@ -1,306 +1,353 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useStore } from './store';
 import { DSL, Step, ChatMessage, Node, Edge, AnimationType, TimelineEvent } from './types';
 import { GraphCanvas } from './GraphCanvas';
 import { ChatInterface } from './ChatInterface';
+import { PlaybackControls } from './PlaybackControls';
+import { DraggablePlaybackControls } from './DraggablePlaybackControls';
+import {
+  TIMELINE_DURATION,
+  NODE_ANIMATION_DURATION,
+  STEP_BASE_INTERVAL,
+  TIMELINE_EVENT_DELAY,
+  TYPING_BASE_DELAY,
+  TYPING_PER_CHAR_DELAY
+} from './config';
+import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import './index.css';
 
 function App() {
   const {
+    // UI状态
     userInput,
     setUserInput,
     chatHistory,
     setChatHistory,
     isLoading,
-    setIsLoading
-  } = useStore();
+    setIsLoading,
+    loadingStartTime,
+    setLoadingStartTime,
+    pastedJson,
+    setPastedJson,
+    showJsonPanel,
+    setShowJsonPanel,
 
-  const [dsl, setDsl] = useState<DSL | null>(null);
-  const [currentStep, setCurrentStep] = useState(-1);
-  const [nodes, setNodes] = useState<Map<string, Node>>(new Map());
-  const [edges, setEdges] = useState<Edge[]>([]);
-  const [visibleNodeIds, setVisibleNodeIds] = useState<Set<string>>(new Set());
-  const [visibleEdgeIds, setVisibleEdgeIds] = useState<Set<string>>(new Set());
-  const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
-  const [highlightedEdges, setHighlightedEdges] = useState<Set<string>>(new Set());
-  const [_currentText, setCurrentText] = useState<string>('');
-  const [nodeAnimations, setNodeAnimations] = useState<Map<string, AnimationType>>(new Map());
-  const [activeTimelineEvents, setActiveTimelineEvents] = useState<TimelineEvent[]>([]);
-  const [timelineAnimations, setTimelineAnimations] = useState<Map<string, { progress: number }>>(new Map());
-  const [pastedJson, setPastedJson] = useState<string>('');
-  const [showJsonPanel, setShowJsonPanel] = useState<boolean>(false);
+    // 图状态
+    dsl,
+    setDsl,
+    currentStep,
+    setCurrentStep,
+    nodes,
+    setNodes,
+    edges,
+    setEdges,
+    visibleNodeIds,
+    setVisibleNodeIds,
+    visibleEdgeIds,
+    setVisibleEdgeIds,
+    highlightedNodes,
+    setHighlightedNodes,
+    highlightedEdges,
+    setHighlightedEdges,
+    nodeAnimations,
+    setNodeAnimations,
+    activeTimelineEvents,
+    setActiveTimelineEvents,
+    timelineAnimations,
+    setTimelineAnimations,
+    displayText,
+    setDisplayText,
+    resetGraphState,
+    resetGraphDisplay
+  } = useStore();
 
   const intervalRef = useRef<number | null>(null);
   const typingRef = useRef<number | null>(null);
-  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
-  const [displayText, setDisplayText] = useState<string>('');
 
+  // 清理函数：组件卸载时清理定时器
   useEffect(() => {
-    if (intervalRef.current) {
-      clearTimeout(intervalRef.current);
-      intervalRef.current = null;
-    }
+    return () => {
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (typingRef.current) {
+        clearTimeout(typingRef.current);
+        typingRef.current = null;
+      }
+    };
   }, []);
 
-  const startTypingEffect = (fullText: string, onComplete?: () => void) => {
+  // 获取当前状态用于更新
+  const getCurrentState = useCallback(() => {
+    const state = useStore.getState();
+    return {
+      nodes: state.nodes,
+      edges: state.edges,
+      visibleNodeIds: state.visibleNodeIds,
+      visibleEdgeIds: state.visibleEdgeIds,
+      nodeAnimations: state.nodeAnimations,
+      activeTimelineEvents: state.activeTimelineEvents,
+      timelineAnimations: state.timelineAnimations,
+      highlightedNodes: state.highlightedNodes,
+      highlightedEdges: state.highlightedEdges
+    };
+  }, []);
+
+  // 打字机效果
+  const startTypingEffect = useCallback((fullText: string, onComplete?: () => void) => {
     if (typingRef.current) {
       clearTimeout(typingRef.current);
       typingRef.current = null;
     }
-    
+
     if (!fullText) {
       setDisplayText('');
       onComplete?.();
       return;
     }
-    
+
     let charIndex = 0;
     const typeNextChar = () => {
       charIndex++;
       setDisplayText(fullText.substring(0, charIndex));
-      
+
       if (charIndex < fullText.length) {
-        typingRef.current = window.setTimeout(typeNextChar, 40);
+        typingRef.current = window.setTimeout(typeNextChar, TYPING_PER_CHAR_DELAY);
       } else {
         typingRef.current = null;
         onComplete?.();
       }
     };
-    
-    typingRef.current = window.setTimeout(typeNextChar, 50);
-  };
 
-  const executeStep = (step: Step) => {
-    if (step.add) {
-      setNodes(prev => {
-        const newMap = new Map(prev);
-        step.add!.forEach(node => {
-          newMap.set(node.id, node);
-        });
-        return newMap;
-      });
-      
-      setVisibleNodeIds(prev => {
-        const newSet = new Set(prev);
-        step.add!.forEach(node => {
-          newSet.add(node.id);
-        });
-        return newSet;
-      });
-      
-      if (step.animate) {
-        setNodeAnimations(prev => {
-          const newMap = new Map(prev);
-          step.add!.forEach(node => {
-            newMap.set(node.id, step.animate!.type);
-          });
-          return newMap;
-        });
-        
-        step.add!.forEach(node => {
-          setTimeout(() => {
-            setNodeAnimations(prev => {
-              const newMap = new Map(prev);
-              newMap.delete(node.id);
-              return newMap;
-            });
-          }, step.animate!.duration || 500);
-        });
-      }
-    }
+    typingRef.current = window.setTimeout(typeNextChar, TYPING_BASE_DELAY);
+  }, [setDisplayText]);
 
-    if (step.connect) {
-      setEdges(prev => {
-        const newEdges = [...prev];
-        step.connect!.forEach(edge => {
-          if (!newEdges.some(e => e.from === edge.from && e.to === edge.to)) {
-            newEdges.push(edge);
+  // 执行单个步骤
+  const executeStep = useCallback((step: Step) => {
+    try {
+      const current = getCurrentState();
+      let newNodes = new Map<string, Node>(current.nodes);
+      let newEdges: Edge[] = [...current.edges];
+      let newVisibleNodeIds = new Set<string>(current.visibleNodeIds);
+      let newVisibleEdgeIds = new Set<string>(current.visibleEdgeIds);
+      let newNodeAnimations = new Map<string, AnimationType>(current.nodeAnimations);
+      let newActiveTimelineEvents: TimelineEvent[] = [...current.activeTimelineEvents];
+      let newTimelineAnimations = new Map<string, { progress: number }>(current.timelineAnimations);
+
+      // 添加节点
+      if (step.add && Array.isArray(step.add)) {
+        step.add.forEach(node => {
+          if (node && node.id) {
+            newNodes.set(node.id, node);
+            newVisibleNodeIds.add(node.id);
           }
         });
-        return newEdges;
-      });
-      
-      setVisibleEdgeIds(prev => {
-        const newSet = new Set(prev);
-        step.connect!.forEach(edge => {
-          newSet.add(`${edge.from}-${edge.to}`);
-        });
-        return newSet;
-      });
-    }
 
-    if (step.highlight) {
-      setHighlightedNodes(new Set(step.highlight));
-      
-      setHighlightedEdges(() => {
+        // 节点动画
+        if (step.animate && step.animate.type && step.add) {
+          step.add.forEach(node => {
+            if (node && node.id) {
+              newNodeAnimations.set(node.id, step.animate!.type);
+            }
+          });
+
+          // 动画结束后清除 - 使用当前状态获取
+          step.add.forEach(node => {
+            if (node && node.id) {
+              setTimeout(() => {
+                // 直接获取当前动画状态并删除
+                const currentAnims = useStore.getState().nodeAnimations;
+                const newMap = new Map(currentAnims);
+                newMap.delete(node.id!);
+                setNodeAnimations(newMap);
+              }, step.animate!.duration || NODE_ANIMATION_DURATION);
+            }
+          });
+        }
+      }
+
+      // 连接边
+      if (step.connect && Array.isArray(step.connect)) {
+        step.connect.forEach(edge => {
+          if (edge && edge.from && edge.to) {
+            if (!newEdges.some(e => e.from === edge.from && e.to === edge.to)) {
+              newEdges.push(edge);
+            }
+            newVisibleEdgeIds.add(`${edge.from}-${edge.to}`);
+          }
+        });
+      }
+
+      // 高亮
+      if (step.highlight && Array.isArray(step.highlight)) {
+        setHighlightedNodes(new Set(step.highlight));
+
         const highlightedEdgeSet = new Set<string>();
-        edges.forEach(edge => {
+        newEdges.forEach(edge => {
           if (step.highlight!.includes(edge.from) || step.highlight!.includes(edge.to)) {
             highlightedEdgeSet.add(`${edge.from}-${edge.to}`);
           }
         });
-        return highlightedEdgeSet;
-      });
-    }
+        setHighlightedEdges(highlightedEdgeSet);
+      }
 
-    if (step.remove) {
-      setVisibleNodeIds(prev => {
-        const newSet = new Set(prev);
-        step.remove!.forEach(id => {
-          newSet.delete(id);
+      // 移除节点
+      if (step.remove && Array.isArray(step.remove)) {
+        step.remove.forEach(id => {
+          if (id) newVisibleNodeIds.delete(id);
         });
-        return newSet;
-      });
-      
-      setVisibleEdgeIds(prev => {
-        const newSet = new Set(prev);
+
         const edgesToRemove = new Set(step.remove!);
-        edges.forEach(edge => {
+        newEdges.forEach(edge => {
           if (edgesToRemove.has(edge.from) || edgesToRemove.has(edge.to)) {
-            newSet.delete(`${edge.from}-${edge.to}`);
+            newVisibleEdgeIds.delete(`${edge.from}-${edge.to}`);
           }
         });
-        return newSet;
-      });
-    }
+      }
 
-    if (step.timeline) {
-      step.timeline.forEach((event, index) => {
-        const delay = (event.delay || 0) + index * 300;
-        
-        setTimeout(() => {
-          setActiveTimelineEvents(prev => {
-            if (!prev.some(e => e.id === event.id)) {
-              return [...prev, event];
+      // 应用所有状态更新
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setVisibleNodeIds(newVisibleNodeIds);
+      setVisibleEdgeIds(newVisibleEdgeIds);
+      setNodeAnimations(newNodeAnimations);
+      setActiveTimelineEvents(newActiveTimelineEvents);
+      setTimelineAnimations(newTimelineAnimations);
+
+      // 时间线事件
+      if (step.timeline && Array.isArray(step.timeline)) {
+        step.timeline.forEach((event, index) => {
+          if (!event || !event.id) return;
+
+          const delay = (event.delay || 0) + index * TIMELINE_EVENT_DELAY;
+
+          setTimeout(() => {
+            const prevEvents = useStore.getState().activeTimelineEvents;
+            if (!prevEvents.some((e: TimelineEvent) => e.id === event.id)) {
+              setActiveTimelineEvents([...prevEvents, event]);
             }
-            return prev;
-          });
-          
-          setTimelineAnimations(prev => {
-            const newMap = new Map(prev);
+
+            const prevTimeAnims = useStore.getState().timelineAnimations;
+            const newMap = new Map(prevTimeAnims);
             newMap.set(event.id, { progress: 0 });
-            return newMap;
-          });
-          
-          const animationDuration = 800;
-          const startTime = Date.now();
-          
-          const animate = () => {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min(elapsed / animationDuration, 1);
-            
-            setTimelineAnimations(prev => {
-              const newMap = new Map(prev);
-              newMap.set(event.id, { progress });
-              return newMap;
-            });
-            
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            } else {
-              setTimeout(() => {
-                setTimelineAnimations(prev => {
-                  const newMap = new Map(prev);
-                  newMap.delete(event.id);
-                  return newMap;
-                });
-              }, 500);
-            }
-          };
-          
-          requestAnimationFrame(animate);
-        }, delay);
-      });
+            setTimelineAnimations(newMap);
+
+            const startTime = Date.now();
+
+            const animate = () => {
+              const elapsed = Date.now() - startTime;
+              const progress = Math.min(elapsed / TIMELINE_DURATION, 1);
+
+              const currAnims = useStore.getState().timelineAnimations;
+              const animMap = new Map(currAnims);
+              animMap.set(event.id, { progress });
+              setTimelineAnimations(animMap);
+
+              if (progress < 1) {
+                requestAnimationFrame(animate);
+              } else {
+                setTimeout(() => {
+                  const finalAnims = useStore.getState().timelineAnimations;
+                  const finalMap = new Map(finalAnims);
+                  finalMap.delete(event.id!);
+                  setTimelineAnimations(finalMap);
+                }, STEP_BASE_INTERVAL);
+              }
+            };
+
+            requestAnimationFrame(animate);
+          }, delay);
+        });
+      }
+
+      // 打字机效果
+      const text = step.text || '';
+      const typingDuration = text.length > 0 ? TYPING_BASE_DELAY + text.length * TYPING_PER_CHAR_DELAY : 0;
+      startTypingEffect(text);
+      return typingDuration;
+    } catch (error) {
+      console.error('Error executing step:', error);
+      return 0;
     }
+  }, [getCurrentState, setNodes, setEdges, setVisibleNodeIds, setVisibleEdgeIds, setNodeAnimations, setActiveTimelineEvents, setTimelineAnimations, setHighlightedNodes, setHighlightedEdges, startTypingEffect]);
 
-    const text = step.text || '';
-    const typingDuration = text.length > 0 ? 50 + text.length * 40 : 0;
-    startTypingEffect(text);
-    return typingDuration;
-  };
+  // 流式播放单个步骤（用于流式增量渲染）
+  const playSingleStep = useCallback((step: Step, stepIndex: number) => {
+    setCurrentStep(stepIndex);
+    return executeStep(step);
+  }, [executeStep, setCurrentStep]);
 
-  const playAllSteps = (targetDsl?: DSL) => {
+  // 播放所有步骤
+  const playAllSteps = useCallback((targetDsl?: DSL) => {
     const dslToPlay = targetDsl || dsl;
     if (!dslToPlay) return;
 
+    console.log('[重播] dsl.steps.length:', dslToPlay.steps?.length);
+    console.log('[重播] steps:', JSON.stringify(dslToPlay.steps?.map(s => s.text?.substring(0, 20))));
+
+    // 清理之前的定时器
     if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+      clearTimeout(intervalRef.current);
+      intervalRef.current = null;
     }
 
-    setNodes(new Map());
-    setEdges([]);
-    setVisibleNodeIds(new Set());
-    setVisibleEdgeIds(new Set());
-    setHighlightedNodes(new Set());
-    setHighlightedEdges(new Set());
-    setCurrentStep(-1);
-    setCurrentText('');
-    setDisplayText('');
-    setActiveTimelineEvents([]);
-    setTimelineAnimations(new Map());
-
-    if (typingRef.current) {
-      clearTimeout(typingRef.current);
-      typingRef.current = null;
-    }
+    // 重置状态
+    resetGraphState();
+    setDsl(dslToPlay);
 
     setTimeout(() => {
       let stepIndex = 0;
       const steps = dslToPlay.steps;
-      
+
       const runStep = () => {
         if (stepIndex < steps.length) {
+          console.log(`[重播] 执行步骤 ${stepIndex + 1}/${steps.length}`);
           const step = steps[stepIndex];
           setCurrentStep(stepIndex);
           const typingDuration = executeStep(step);
           stepIndex++;
-          
-          const baseInterval = 500;
-          const interval = Math.max(baseInterval, typingDuration + 500);
+
+          const baseInterval = STEP_BASE_INTERVAL;
+          const interval = Math.max(baseInterval, typingDuration + STEP_BASE_INTERVAL);
           intervalRef.current = window.setTimeout(runStep, interval);
         } else {
+          console.log('[重播] 完成');
           intervalRef.current = null;
         }
       };
-      
+
       setTimeout(runStep, 50);
     }, 50);
-  };
+  }, [dsl, resetGraphState, setDsl, setCurrentStep, executeStep]);
 
-  const handlePasteJson = () => {
+  // 处理粘贴 JSON
+  const handlePasteJson = useCallback(() => {
     if (!pastedJson.trim()) {
       alert('请先粘贴JSON代码');
       return;
     }
 
-    try {
-      const parsedDsl = JSON.parse(pastedJson);
-      
-      setNodes(new Map());
-      setEdges([]);
-      setVisibleNodeIds(new Set());
-      setVisibleEdgeIds(new Set());
-      setHighlightedNodes(new Set());
-      setHighlightedEdges(new Set());
-      setCurrentStep(-1);
-      setCurrentText('');
-      setActiveTimelineEvents([]);
-      setTimelineAnimations(new Map());
-      
-      setDsl(parsedDsl);
-      setShowJsonPanel(false);
-      setPastedJson('');
-      playAllSteps(parsedDsl);
-    } catch (e) {
-      alert('JSON格式错误，请检查：' + (e as Error).message);
-    }
-  };
+    const result = safeParseDSL(pastedJson);
 
-  const handleAIGenerate = async () => {
+    if (!result.success) {
+      alert('JSON格式错误: ' + (result.error || '请检查格式'));
+      return;
+    }
+
+    resetGraphState();
+    setDsl(result.data!);
+    setShowJsonPanel(false);
+    setPastedJson('');
+    playAllSteps(result.data!);
+  }, [pastedJson, resetGraphState, setDsl, setShowJsonPanel, setPastedJson, playAllSteps]);
+
+  // 处理 AI 生成
+  const handleAIGenerate = useCallback(async () => {
     if (!userInput.trim() || isLoading) return;
 
     const deepseekApiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-    
+
     if (!deepseekApiKey) {
       alert('请设置 VITE_DEEPSEEK_API_KEY 环境变量');
       return;
@@ -312,7 +359,6 @@ function App() {
       timestamp: Date.now()
     };
 
-    // 确保chatHistory是一个数组，使用函数式更新
     setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage]);
     setUserInput('');
     setLoadingStartTime(Date.now());
@@ -329,272 +375,41 @@ function App() {
         },
         body: JSON.stringify({
           model: 'deepseek-chat',
-          stream: true, // 启用流式返回
+          stream: true,
           messages: [
             {
               role: 'system',
-              content: `你是一个"可视化讲解脚本生成器"。
+              content: `你是一个"可视化讲解脚本生成器"。你的任务是把用户的问题，转换成一个"逐步讲解的 DSL（JSON格式）"。目标是用"边讲边画"的方式，让用户理解一个概念或过程。
 
-你的任务是：
-把用户的问题，转换成一个"逐步讲解的增强版 DSL（JSON格式）"。
-
-目标：
-用"边讲边画"的方式，让用户理解一个概念或过程。
-
-====================
-【DSL 结构定义】
-====================
-
+DSL 结构：
 {
   "title": "标题",
   "meta": { "domain": "领域标签" },
-  "nodes": [
-    {
-      "id": "节点ID",
-      "label": "显示文字",
-      "type": "节点类型",
-      "style": { "color": "文字颜色", "fill": "背景颜色", "border": "边框颜色" }
-    }
-  ],
-  "edges": [
-    {
-      "from": "起始节点ID",
-      "to": "目标节点ID",
-      "label": "连线标签（可选）",
-      "type": "连线类型"
-    }
-  ],
-  "layoutHints": {
-    "type": "布局类型",
-    "geometryType": "几何类型（可选）",
-    "constraints": [ { "type": "约束类型", "nodes": ["节点ID列表"] } ]
-  },
+  "layoutHints": { "type": "布局类型" },
   "steps": [
     {
       "text": "讲解文字",
-      "add": [{ "id": "节点ID", "label": "文字", "type": "节点类型" }],
+      "add": [{ "id": "节点ID", "label": "文字", "type": "节点类型", "x": x, "y": y }],
       "connect": [{ "from": "ID", "to": "ID", "label": "标签" }],
-      "highlight": ["节点ID"]
+      "highlight": ["节点ID"],
+      "timeline": [{ "id": "事件ID", "from": "起始节点", "to": "目标节点", "label": "标签" }]
     }
   ]
 }
 
-====================
-【节点类型说明】
-====================
+节点类型：vertex(蓝色圆形), concept(浅灰矩形), dataPoint(绿色圆形), annotation(黄色矩形), process(橙色矩形)
+边类型：straight, arrow, curve, diagonal
+布局类型：geometry(几何), flow(流程), network(网络), data(数据)
+领域标签：mathematics(数学), software_engineering(软件工程), physics(物理), general(通用)
 
-vertex: 几何顶点（如 A, B, C, D） - 蓝色圆形
-concept: 概念节点（如 函数、变量、数据结构） - 浅灰矩形
-dataPoint: 数据点、输入输出 - 绿色圆形
-annotation: 标注（如角度、边长、标签） - 黄色矩形
-process: 流程步骤、处理过程 - 橙色矩形
-
-**annotation 节点必须指定 target 属性**：
-- type: "node" - 指向节点，使用 nodeId
-- type: "edge" - 指向边，使用 edgeId（如 "A-B"）
-- type: "angle" - 指向角度，使用 angleNodes（如 ["A","B","C"]）
-- position: 位置（top | bottom | left | right | auto）
-
-====================
-【边类型说明】
-====================
-
-straight: 直线连接 - 直接连接两个节点
-arrow: 箭头连接 - 表示方向、流程、数据流
-curve: 曲线连接 - 用于避免交叉
-diagonal: 对角线 - 用于几何图形
-
-====================
-【时间线事件（timeline）】
-====================
-
-**什么时候用 timeline？**
-当描述"往返通信"、"数据包传输"、"时序流程"时，用 timeline 而不是 edge！
-
-**TCP 三次握手示例**：
-{
-  "steps": [
-    {
-      "text": "三次握手建立连接",
-      "timeline": [
-        { "id": "t1", "from": "client", "to": "server", "label": "SYN" },
-        { "id": "t2", "from": "server", "to": "client", "label": "SYN-ACK" },
-        { "id": "t3", "from": "client", "to": "server", "label": "ACK" }
-      ]
-    }
-  ]
-}
-
-**timeline 字段说明**：
-- id: 事件唯一标识
-- from: 起始节点 ID（发送方）
-- to: 目标节点 ID（接收方）
-- label: 显示在路径上的标签
-- direction: 方向（forward | backward），默认 forward
-- color: 事件颜色（可选，默认粉红色）
-- delay: 延迟毫秒（可选）
-
-**⚠️ 重要**：SYN、ACK 等数据包不是节点！它们是 timeline 事件！
-
-====================
-【布局类型说明】
-====================
-
-geometry: 几何布局（数学证明、几何图形）
-  - geometryType: square | triangle | circle | rectangle | polygon
-  - constraints: equalLength, rightAngle, diagonalIntersect
-
-flow: 流程布局（步骤流程、算法流程）
-  - constraints: sequential, parallel, horizontal
-
-network: 网络布局（关系图、依赖图、概念图）
-  - constraints: group, center, hierarchy
-
-data: 数据布局（图表、数据展示）
-  - constraints: horizontal, vertical
-
-====================
-【约束类型详解】
-====================
-
-equalLength: 所有边长度相等
-rightAngle: 直角关系
-diagonalIntersect: 对角线相交于中点
-parallel: 平行边
-perpendicular: 垂直边
-group: 分组排列
-center: 中心节点
-horizontal: 水平对齐
-vertical: 垂直对齐
-sequential: 顺序排列
-
-====================
-【强制规则】
-====================
-
+强制规则：
 1. 只输出 JSON，不要解释，不要包含 markdown 代码块标记
 2. 每个 step 必须有 text
-3. 节点 ID 必须简洁（如 A, B, f, y, n1）
-4. **必须指定节点坐标**：每个节点必须有 x 和 y 属性，代表在 SVG 中的位置
+3. 节点 ID 必须简洁
+4. 必须指定节点坐标 x 和 y
 5. 步骤必须有清晰的教学顺序
-6. 每一步只做一件事（不要同时添加太多节点）
-7. **不要添加 layoutHints**：计算式 DSL 不需要布局提示
-8. **不要添加冗余 style**：使用默认样式即可
-9. domain 必须使用标准值：只能使用 mathematics | software_engineering | physics | general
-
-====================
-【画布尺寸】
-====================
-
-- 默认尺寸：800x500px
-- 中心点：400, 250
-
-====================
-【annotation 规则】
-====================
-
-annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义关联。
-
-**示例**：
-{
-  "id": "reliable",
-  "label": "可靠",
-  "type": "annotation",
-  "x": 400,
-  "y": 200,
-  "target": { "nodeId": "tcp" }
-}
-
-====================
-【设计原则】
-====================
-
-- 从简单到复杂
-- 一步一步构建理解
-- 每一步只引入一个新概念
-- 图只是辅助理解
-
-====================
-【Few-shot 示例】
-====================
-
-示例 1：什么是函数？
-{
-  "title": "函数的基本概念",
-  "meta": { "domain": "mathematics" },
-  "nodes": [
-    { "id": "x", "label": "输入 x", "type": "dataPoint", "x": 150, "y": 250 },
-    { "id": "f", "label": "f()", "type": "concept", "x": 400, "y": 250 },
-    { "id": "y", "label": "输出 y", "type": "dataPoint", "x": 650, "y": 250 }
-  ],
-  "edges": [
-    { "from": "x", "to": "f", "label": "处理", "type": "arrow" },
-    { "from": "f", "to": "y", "type": "arrow" }
-  ],
-  "steps": [
-    { "text": "我们先看一个输入 x", "add": [{ "id": "x", "label": "输入 x", "type": "dataPoint", "x": 150, "y": 250 }] },
-    { "text": "函数 f 会处理这个输入", "add": [{ "id": "f", "label": "f()", "type": "concept", "x": 400, "y": 250 }], "connect": [{ "from": "x", "to": "f", "label": "处理", "type": "arrow" }] },
-    { "text": "处理后得到输出 y", "add": [{ "id": "y", "label": "输出 y", "type": "dataPoint", "x": 650, "y": 250 }], "connect": [{ "from": "f", "to": "y", "type": "arrow" }] },
-    { "text": "这就是函数：输入 → 处理 → 输出", "highlight": ["f"] }
-  ]
-}
-
-
-示例 3：什么是正方形？
-{
-  "title": "正方形的性质",
-  "meta": { "domain": "mathematics" },
-  "nodes": [
-    { "id": "A", "label": "A", "type": "vertex", "x": 250, "y": 150 },
-    { "id": "B", "label": "B", "type": "vertex", "x": 550, "y": 150 },
-    { "id": "C", "label": "C", "type": "vertex", "x": 550, "y": 350 },
-    { "id": "D", "label": "D", "type": "vertex", "x": 250, "y": 350 },
-    { "id": "lengthAB", "label": "5cm", "type": "annotation", "x": 400, "y": 130, "target": { "nodeId": "A" } },
-    { "id": "angleA", "label": "90°", "type": "annotation", "x": 230, "y": 150, "target": { "nodeId": "A" } },
-    { "id": "angleB", "label": "90°", "type": "annotation", "x": 570, "y": 150, "target": { "nodeId": "B" } }
-  ],
-  "edges": [
-    { "from": "A", "to": "B", "label": "边" },
-    { "from": "B", "to": "C", "label": "边" },
-    { "from": "C", "to": "D", "label": "边" },
-    { "from": "D", "to": "A", "label": "边" },
-    { "from": "A", "to": "C", "label": "对角线" },
-    { "from": "B", "to": "D", "label": "对角线" }
-  ],
-  "steps": [
-    { "text": "画四个顶点 A、B、C、D", "add": [
-      { "id": "A", "label": "A", "type": "vertex", "x": 250, "y": 150 },
-      { "id": "B", "label": "B", "type": "vertex", "x": 550, "y": 150 },
-      { "id": "C", "label": "C", "type": "vertex", "x": 550, "y": 350 },
-      { "id": "D", "label": "D", "type": "vertex", "x": 250, "y": 350 }
-    ]},
-    { "text": "依次连接各边", "connect": [
-      { "from": "A", "to": "B", "label": "边" },
-      { "from": "B", "to": "C", "label": "边" },
-      { "from": "C", "to": "D", "label": "边" },
-      { "from": "D", "to": "A", "label": "边" }
-    ]},
-    { "text": "标注一条边的长度", "add": [{ "id": "lengthAB", "label": "5cm", "type": "annotation", "x": 400, "y": 130 }] },
-    { "text": "正方形的特点是四个角都是直角", "add": [
-      { "id": "angleA", "label": "90°", "type": "annotation", "x": 230, "y": 150 },
-      { "id": "angleB", "label": "90°", "type": "annotation", "x": 570, "y": 150 }
-    ]},
-    { "text": "两条对角线互相平分", "connect": [
-      { "from": "A", "to": "C", "label": "对角线" },
-      { "from": "B", "to": "D", "label": "对角线" }
-    ]}
-  ]
-}
-
-====================
-【输出格式要求】
-====================
-
-1. 必须输出纯 JSON，不要包含 markdown 代码块标记
-2. JSON 必须能被标准 JSON.parse 解析
-3. 确保所有引号、转义字符正确
-4. 节点和边可以预先定义，也可以在 steps 中动态添加
-5. 优先使用 steps 中的 add/connect，保持步骤的渐进性`
+6. 画布尺寸 800x500，中心点 400,250
+7. 所有节点都在 steps 的 add 中逐步添加，所有边都在 connect 中逐步添加`
             },
             ...(Array.isArray(chatHistory) ? chatHistory : []).map(msg => ({
               role: msg.role,
@@ -618,14 +433,22 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
         let actualContent = '';
         let isDslParsed = false;
         let assistantMessageId: string | null = null;
+        let playedStepCount = 0;
+        let lastParsedStepsCount = 0;
+        let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+
+        // 清理所有待执行的定时器
+        const clearPendingTimeouts = () => {
+          pendingTimeouts.forEach(id => clearTimeout(id));
+          pendingTimeouts = [];
+        };
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          
-          // 处理SSE格式
+
           const lines = chunk.split('\n');
           for (const line of lines) {
             if (line.startsWith('data: ')) {
@@ -637,11 +460,8 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
                 const chunkData = JSON.parse(data);
                 const content = chunkData.choices[0]?.delta?.content || '';
                 if (content) {
-                  // 实时更新消息
                   if (!assistantMessageId) {
-                    // 初始化实际内容
                     actualContent = content;
-                    // 创建新的助手消息
                     const newAssistantMessage: ChatMessage = {
                       role: 'assistant',
                       content: content,
@@ -650,9 +470,7 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
                     setChatHistory(prev => [...prev, newAssistantMessage]);
                     assistantMessageId = newAssistantMessage.timestamp.toString();
                   } else {
-                    // 累积实际内容
                     actualContent += content;
-                    // 更新现有消息
                     setChatHistory(prev => {
                       const updatedHistory = [...prev];
                       const assistantMsgIndex = updatedHistory.findIndex(
@@ -667,36 +485,95 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
                       return updatedHistory;
                     });
                   }
-                  
-                  // 尝试解析JSON
-                  const jsonMatch = actualContent.match(/\{[\s\S]*\}/);
-                  if (jsonMatch && !isDslParsed) {
-                    try {
-                      const parsedDsl = JSON.parse(jsonMatch[0]);
-                      isDslParsed = true;
+
+                  // 流式解析：使用 extractStreamingSteps 提取已完成的 steps
+                  if (!isDslParsed) {
+                    const { completedSteps, isComplete } = extractStreamingSteps(actualContent);
+                    
+                    console.log(`[流式解析] content长度: ${actualContent.length}, completedSteps: ${completedSteps.length}, isComplete: ${isComplete}, lastParsed: ${lastParsedStepsCount}`);
+                    
+                    // 调试：检查是否有非 JSON 前缀
+                    if (actualContent.includes('```')) {
+                      console.log('[警告] 内容包含 ``` 标记');
+                    }
+
+                    if (completedSteps.length > 0) {
+                      // 每次解析成功时都更新 DSL（确保最终保存所有 steps）
+                      const partialDsl: DSL = {
+                        steps: completedSteps as any[]
+                      };
+                      setDsl(partialDsl);
+                      console.log('[流式] DSL已更新, steps:', completedSteps.length);
                       
-                      // 初始化状态
-                      setNodes(new Map());
-                      setEdges([]);
-                      setVisibleNodeIds(new Set());
-                      setVisibleEdgeIds(new Set());
-                      setHighlightedNodes(new Set());
-                      setHighlightedEdges(new Set());
-                      setCurrentStep(-1);
-                      setCurrentText('');
-                      setActiveTimelineEvents([]);
-                      setTimelineAnimations(new Map());
+                      // 第一次解析成功时重置图形
+                      if (playedStepCount === 0 && completedSteps.length > 0) {
+                        console.log('[流式] 第一次解析成功，重置图形');
+                        resetGraphState();
+                      }
+
+                      // 计算新增的 steps
+                      const newStepsCount = completedSteps.length - lastParsedStepsCount;
                       
-                      setDsl(parsedDsl);
-                      playAllSteps(parsedDsl);
-                    } catch (e) {
-                      // 继续等待更多数据
+                      console.log(`[流式] newStepsCount = ${completedSteps.length} - ${lastParsedStepsCount} = ${newStepsCount}`);
+
+                      if (newStepsCount > 0) {
+                        console.log(`[流式] 新增 ${newStepsCount} 个steps`);
+                        // 播放新增的 steps
+                        for (let i = 0; i < newStepsCount; i++) {
+                          const stepIndex = lastParsedStepsCount + i;
+                          const step = completedSteps[stepIndex];
+                          const delay = i * STEP_BASE_INTERVAL;
+
+                          const timeoutId = setTimeout(() => {
+                            playSingleStep(step as any, stepIndex);
+                            playedStepCount = Math.max(playedStepCount, stepIndex + 1);
+                          }, delay);
+
+                          pendingTimeouts.push(timeoutId);
+                        }
+
+                        lastParsedStepsCount = completedSteps.length;
+                      }
+
+                      // 如果 steps 完整，标记为已解析
+                      if (isComplete && playedStepCount >= completedSteps.length) {
+                        console.log('[流式] 标记为已解析 isDslParsed=true');
+                        isDslParsed = true;
+                        clearPendingTimeouts();
+                      }
                     }
                   }
                 }
-              } catch (e) {
+              } catch {
                 // 忽略解析错误
               }
+            }
+          }
+        }
+
+        // 流结束后，确保 DSL 被正确解析
+        clearPendingTimeouts();
+        if (!isDslParsed && actualContent) {
+          console.log('[AI完整输出长度]', actualContent.length);
+          console.log('[AI完整输出]', actualContent);
+          const finalResult = safeParseDSL(actualContent);
+          console.log('[safeParseDSL success]', finalResult.success);
+          if (finalResult.success && finalResult.data) {
+            console.log('[AI解析成功] steps数量:', finalResult.data.steps?.length);
+            console.log('[保存到store前] dsl.steps:', finalResult.data.steps?.map(s => s.text?.substring(0, 30)));
+            resetGraphState();
+            setDsl(finalResult.data);
+            console.log('[保存到store后] dsl已设置');
+
+            // 播放所有 steps
+            const steps = finalResult.data.steps;
+            if (steps && steps.length > 0) {
+              steps.forEach((step, index) => {
+                const timeoutId = setTimeout(() => {
+                  playSingleStep(step, index);
+                }, index * STEP_BASE_INTERVAL);
+                pendingTimeouts.push(timeoutId);
+              });
             }
           }
         }
@@ -716,47 +593,64 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
       setIsLoading(false);
       setLoadingStartTime(null);
     }
-  };
+  }, [userInput, isLoading, chatHistory, resetGraphState, setDsl, playAllSteps, setChatHistory, setUserInput, setIsLoading, setLoadingStartTime]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // 键盘事件
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleAIGenerate();
     }
-  };
+  }, [handleAIGenerate]);
 
-  const handleClear = () => {
+  // 清空
+  const handleClear = useCallback(() => {
     if (intervalRef.current) {
       clearTimeout(intervalRef.current);
       intervalRef.current = null;
     }
-    
+
     if (typingRef.current) {
       clearTimeout(typingRef.current);
       typingRef.current = null;
     }
-    
-    setNodes(new Map());
-    setEdges([]);
-    setVisibleNodeIds(new Set());
-    setVisibleEdgeIds(new Set());
-    setHighlightedNodes(new Set());
-    setHighlightedEdges(new Set());
-    setCurrentStep(-1);
-    setCurrentText('');
-    setDisplayText('');
+
+    resetGraphState();
     setDsl(null);
-    setNodeAnimations(new Map());
-    setActiveTimelineEvents([]);
-    setTimelineAnimations(new Map());
-  };
+  }, [resetGraphState, setDsl]);
+
+  // 跳转到指定步骤
+  const handleJumpToStep = useCallback((stepIndex: number) => {
+    if (!dsl || stepIndex < 0 || stepIndex >= dsl.steps.length) return;
+
+    resetGraphDisplay();
+    setCurrentStep(stepIndex);
+
+    for (let i = 0; i <= stepIndex; i++) {
+      executeStep(dsl.steps[i]);
+    }
+  }, [dsl, resetGraphDisplay, setCurrentStep, executeStep]);
+
+  // 上一步
+  const handlePrevStep = useCallback(() => {
+    if (currentStep > 0) {
+      handleJumpToStep(currentStep - 1);
+    }
+  }, [currentStep, handleJumpToStep]);
+
+  // 下一步
+  const handleNextStep = useCallback(() => {
+    if (dsl && currentStep < dsl.steps.length - 1) {
+      handleJumpToStep(currentStep + 1);
+    }
+  }, [currentStep, dsl, handleJumpToStep]);
 
   return (
     <div className="app">
       <header className="header">
         <h1>PChat - 智能图形化讲解助手</h1>
         <div className="controls">
-          <button 
+          <button
             onClick={() => setShowJsonPanel(!showJsonPanel)}
             style={{ background: showJsonPanel ? '#3b82f6' : '#64748b' }}
           >
@@ -798,7 +692,7 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
               marginBottom: '10px'
             }}
           />
-          <button 
+          <button
             onClick={handlePasteJson}
             style={{
               background: '#10b981',
@@ -831,6 +725,18 @@ annotation 节点直接指定 x/y 坐标即可，target.nodeId 只用于语义�
             currentText={displayText}
             currentStep={currentStep}
           />
+
+          {(dsl || isLoading) && dsl && dsl.steps && dsl.steps.length > 0 && (
+            <DraggablePlaybackControls>
+              <PlaybackControls
+                totalSteps={dsl.steps.length}
+                currentStep={currentStep}
+                onJumpToStep={handleJumpToStep}
+                onPrevStep={handlePrevStep}
+                onNextStep={handleNextStep}
+              />
+            </DraggablePlaybackControls>
+          )}
         </div>
 
         <ChatInterface

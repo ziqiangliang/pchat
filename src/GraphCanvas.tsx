@@ -1,7 +1,13 @@
 import React, { useMemo, memo } from 'react';
 import { Node, Edge, Position, DSL, AnimationType, TimelineEvent, NODE_STYLES } from './types';
-import { LayoutSolver } from './layoutSolver';
-import { AnnotationLayoutEngine } from './annotationEngine';
+import {
+  CANVAS_HEIGHT,
+  NODE_ANIMATION_DURATION,
+  ANNOTATION_OFFSET,
+  DEFAULT_NODE_LABEL_PADDING,
+  DEFAULT_NODE_HEIGHT,
+  DEFAULT_NODE_RADIUS
+} from './config';
 
 interface GraphCanvasProps {
   dsl: DSL | null;
@@ -32,55 +38,46 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   currentText,
   currentStep
 }) => {
-  const layoutSolver = useMemo(() => new LayoutSolver(), []);
-  const annotationEngine = useMemo(() => new AnnotationLayoutEngine(), []);
-
-  const annotationPositions = useMemo(() => {
-    const allNodes = Array.from(nodes.values());
-    const basePositions = new Map<string, Position>();
-    
-    allNodes.forEach(node => {
-      if (node.pos) {
-        basePositions.set(node.id, { x: node.pos.x, y: node.pos.y });
-      }
-    });
-    
-    const nodesWithoutPos = allNodes.filter(node => !node.pos);
-    if (nodesWithoutPos.length > 0) {
-      const calculatedPositions = layoutSolver.solve(nodesWithoutPos, edges, dsl?.layoutHints);
-      calculatedPositions.forEach((pos, nodeId) => {
-        basePositions.set(nodeId, pos);
-      });
-    }
-    
-    return annotationEngine.processAnnotations(allNodes, basePositions, edges);
-  }, [nodes, edges, dsl, layoutSolver, annotationEngine]);
-
+  // 防御性计算：positions
   const positions = useMemo(() => {
-    const allNodes = Array.from(nodes.values());
+    const allNodes = nodes ? Array.from(nodes.values()) : [];
     const posMap = new Map<string, Position>();
-    
+
+    // 防御性检查：确保 allNodes 是数组
+    if (!Array.isArray(allNodes)) {
+      return posMap;
+    }
+
     allNodes.forEach(node => {
+      // 防御性检查：节点必须有 id
+      if (!node || !node.id) return;
+
+      // 优先使用 x, y 坐标
       if (node.x !== undefined && node.y !== undefined) {
         posMap.set(node.id, { x: node.x, y: node.y });
       } else if (node.pos) {
         posMap.set(node.id, { x: node.pos.x, y: node.pos.y });
       }
     });
-    
+
+    // 处理标注节点
     allNodes
-      .filter(node => node.type === 'annotation' && node.target)
+      .filter(node => node && node.type === 'annotation' && node.target)
       .forEach(annotation => {
+        // 防御性检查
+        if (!annotation || !annotation.id) return;
+
+        // 如果已经有坐标，跳过
         if (annotation.x !== undefined && annotation.y !== undefined) {
           return;
         }
-        
+
         const target = annotation.target!;
-        if (target.nodeId) {
+        if (target && target.nodeId) {
           const targetPos = posMap.get(target.nodeId);
           if (targetPos) {
             const dx = target.dx || 0;
-            const dy = target.dy || -40;
+            const dy = target.dy || -ANNOTATION_OFFSET;
             posMap.set(annotation.id, {
               x: targetPos.x + dx,
               y: targetPos.y + dy
@@ -88,28 +85,37 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           }
         }
       });
-    
+
     return posMap;
   }, [nodes]);
 
   const renderNode = (node: Node, pos: Position, isVisible: boolean) => {
+    // 防御性检查
+    if (!node || !node.id || !pos) return null;
+
     const nodeType = node.type || 'concept';
-    const style = NODE_STYLES[nodeType];
+
+    // 防御性检查：获取节点样式
+    const style = NODE_STYLES[nodeType] || NODE_STYLES.concept;
+
     const isHighlighted = highlightedNodes.has(node.id);
     const animation = nodeAnimations.get(node.id);
     const customStyle = node.style || {};
 
-    const width = node.size?.width || (node.label.length * style.fontSize + 40);
-    const height = node.size?.height || 50;
-    const radius = node.size?.radius || 20;
+    // 防御性计算尺寸
+    const label = node.label || '';
+    const width = node.size?.width || (label.length * style.fontSize + DEFAULT_NODE_LABEL_PADDING);
+    const height = node.size?.height || DEFAULT_NODE_HEIGHT;
+    const radius = node.size?.radius || DEFAULT_NODE_RADIUS;
 
+    // 动画样式
     let animationStyle = {};
     if (animation === 'fade') {
-      animationStyle = { animation: 'fadeIn 0.5s ease' };
+      animationStyle = { animation: `fadeIn ${NODE_ANIMATION_DURATION}ms ease` };
     } else if (animation === 'scale') {
-      animationStyle = { animation: 'scaleIn 0.5s ease' };
+      animationStyle = { animation: `scaleIn ${NODE_ANIMATION_DURATION}ms ease` };
     } else if (animation === 'move') {
-      animationStyle = { animation: 'slideIn 0.5s ease' };
+      animationStyle = { animation: `slideIn ${NODE_ANIMATION_DURATION}ms ease` };
     }
 
     const fill = customStyle.fill || style.fill;
@@ -119,7 +125,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     const opacity = isVisible ? baseOpacity : 0;
 
     return (
-      <g 
+      <g
         key={node.id}
         style={animationStyle}
         className="node-group"
@@ -167,9 +173,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             }}
           />
         )}
-        
 
-        
         <text
           x={pos.x}
           y={pos.y + style.fontSize / 3}
@@ -180,28 +184,33 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           opacity={opacity}
           style={{ transition: 'opacity 0.3s ease' }}
         >
-          {node.label}
+          {label}
         </text>
       </g>
     );
   };
 
   const renderTimelineEvent = (event: TimelineEvent) => {
+    // 防御性检查
+    if (!event || !event.from || !event.to) return null;
+
     const fromPos = positions.get(event.from);
     const toPos = positions.get(event.to);
+
+    // 防御性检查：确保位置存在
     if (!fromPos || !toPos) return null;
 
     const anim = timelineAnimations.get(event.id);
     const progress = anim?.progress || 0;
-    
+
     const currentX = fromPos.x + (toPos.x - fromPos.x) * progress;
     const currentY = fromPos.y + (toPos.y - fromPos.y) * progress;
-    
+
     const labelX = fromPos.x + (toPos.x - fromPos.x) * 0.5;
     const labelY = fromPos.y + (toPos.y - fromPos.y) * 0.5 - 15;
-    
+
     const isForward = event.direction !== 'backward';
-    
+
     return (
       <g key={`timeline-${event.id}`} className="timeline-event">
         <line
@@ -249,8 +258,13 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   };
 
   const renderEdge = (edge: Edge, isVisible: boolean) => {
+    // 防御性检查
+    if (!edge || !edge.from || !edge.to) return null;
+
     const fromPos = positions.get(edge.from);
     const toPos = positions.get(edge.to);
+
+    // 防御性检查：确保位置存在
     if (!fromPos || !toPos) return null;
 
     const edgeKey = `${edge.from}-${edge.to}`;
@@ -305,6 +319,12 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     );
   };
 
+  // 防御性检查：确保 edges 是数组
+  const safeEdges = Array.isArray(edges) ? edges : [];
+  const safeNodes = nodes ? Array.from(nodes.values()) : [];
+  const safeVisibleNodeIds = visibleNodeIds instanceof Set ? visibleNodeIds : new Set<string>();
+  const safeVisibleEdgeIds = visibleEdgeIds instanceof Set ? visibleEdgeIds : new Set<string>();
+
   return (
     <div className="svg-container">
       {currentText && (
@@ -314,7 +334,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       )}
       <svg
         width="100%"
-        height="500"
+        height={CANVAS_HEIGHT}
         style={{ background: '#ffffff' }}
       >
         <defs>
@@ -329,19 +349,19 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
           </marker>
         </defs>
-        
-        {edges.map(edge => renderEdge(edge, visibleEdgeIds.has(`${edge.from}-${edge.to}`)))}
+
+        {safeEdges.map(edge => renderEdge(edge, safeVisibleEdgeIds.has(`${edge.from}-${edge.to}`)))}
         {activeTimelineEvents.map(event => renderTimelineEvent(event))}
-        {Array.from(nodes.values()).map(node => {
+        {safeNodes.map(node => {
           const pos = positions.get(node.id);
-          return pos ? renderNode(node, pos, visibleNodeIds.has(node.id)) : null;
+          return pos ? renderNode(node, pos, safeVisibleNodeIds.has(node.id)) : null;
         })}
       </svg>
-      
-      {dsl && (
+
+      {dsl && dsl.steps && (
         <div className="step-indicators">
           {dsl.steps.map((step, index) => (
-            <div 
+            <div
               key={index}
               className={`step-dot ${index <= currentStep ? 'active' : ''}`}
               title={step.text}

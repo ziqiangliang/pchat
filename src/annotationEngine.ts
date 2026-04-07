@@ -1,8 +1,13 @@
 import { Node, Edge, Position } from './types';
+import { ANNOTATION_OFFSET, ANGLE_ANNOTATION_OFFSET } from './config';
 
+/**
+ * 标注布局引擎
+ * 计算标注节点的正确位置
+ */
 export class AnnotationLayoutEngine {
-  private annotationOffset = 40;
-  
+  private annotationOffset = ANNOTATION_OFFSET;
+
   calculateAnnotationPosition(
     annotation: Node,
     basePositions: Map<string, Position>,
@@ -23,7 +28,7 @@ export class AnnotationLayoutEngine {
           position || 'top',
           basePositions
         );
-      
+
       case 'edge':
         return this.calculateEdgeAnnotationPosition(
           annotation,
@@ -31,7 +36,7 @@ export class AnnotationLayoutEngine {
           position || 'top',
           basePositions
         );
-      
+
       case 'angle':
         return this.calculateAngleAnnotationPosition(
           annotation,
@@ -39,7 +44,7 @@ export class AnnotationLayoutEngine {
           position || 'auto',
           basePositions
         );
-      
+
       default:
         return null;
     }
@@ -55,7 +60,7 @@ export class AnnotationLayoutEngine {
     if (!targetPos) return null;
 
     const annotationPos = this.getOffsetPosition(targetPos, position);
-    
+
     return {
       position: annotationPos,
       targetPosition: targetPos
@@ -68,7 +73,12 @@ export class AnnotationLayoutEngine {
     position: string,
     basePositions: Map<string, Position>
   ): { position: Position; targetPosition: Position } | null {
+    // 防御性检查：确保 edgeId 格式正确
+    if (!edgeId || !edgeId.includes('-')) return null;
+
     const [fromId, toId] = edgeId.split('-');
+    if (!fromId || !toId) return null;
+
     const fromPos = basePositions.get(fromId);
     const toPos = basePositions.get(toId);
 
@@ -92,7 +102,8 @@ export class AnnotationLayoutEngine {
     position: string,
     basePositions: Map<string, Position>
   ): { position: Position; targetPosition: Position } | null {
-    if (angleNodes.length !== 3) return null;
+    // 防御性检查
+    if (!angleNodes || angleNodes.length !== 3) return null;
 
     const nodeA = basePositions.get(angleNodes[0]);
     const vertex = basePositions.get(angleNodes[1]);
@@ -101,7 +112,7 @@ export class AnnotationLayoutEngine {
     if (!nodeA || !vertex || !nodeC) return null;
 
     const targetPos = vertex;
-    
+
     const annotationPos = this.calculateAngleAnnotationOffset(
       nodeA, vertex, nodeC, position
     );
@@ -118,9 +129,14 @@ export class AnnotationLayoutEngine {
     nodeC: Position,
     position: string
   ): Position {
+    // 防御性检查
+    if (!nodeA || !vertex || !nodeC) {
+      return { x: 0, y: 0 };
+    }
+
     const angleA = Math.atan2(nodeA.y - vertex.y, nodeA.x - vertex.x);
     const angleC = Math.atan2(nodeC.y - vertex.y, nodeC.x - vertex.x);
-    
+
     let bisectorAngle: number;
     if (position === 'auto') {
       bisectorAngle = (angleA + angleC) / 2;
@@ -128,7 +144,7 @@ export class AnnotationLayoutEngine {
       bisectorAngle = this.positionToAngle(position);
     }
 
-    const offset = 80;
+    const offset = ANGLE_ANNOTATION_OFFSET;
     return {
       x: vertex.x + offset * Math.cos(bisectorAngle),
       y: vertex.y + offset * Math.sin(bisectorAngle)
@@ -137,7 +153,12 @@ export class AnnotationLayoutEngine {
 
   private getOffsetPosition(targetPos: Position, position: string): Position {
     const offset = this.annotationOffset;
-    
+
+    // 防御性检查
+    if (!targetPos) {
+      return { x: 0, y: 0 };
+    }
+
     switch (position) {
       case 'top':
         return { x: targetPos.x, y: targetPos.y - offset };
@@ -174,9 +195,14 @@ export class AnnotationLayoutEngine {
     edges: Edge[]
   ): Map<string, { position: Position; targetPosition: Position }> {
     const result = new Map<string, { position: Position; targetPosition: Position }>();
-    
+
+    // 防御性检查
+    if (!nodes || !Array.isArray(nodes)) {
+      return result;
+    }
+
     nodes
-      .filter(node => node.type === 'annotation' && node.target)
+      .filter(node => node && node.type === 'annotation' && node.target)
       .forEach(annotation => {
         const calculated = this.calculateAnnotationPosition(
           annotation,
