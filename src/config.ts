@@ -19,6 +19,15 @@ export const NODE_ANIMATION_DURATION = 500;
 // 步骤之间的基础间隔 (毫秒)
 export const STEP_BASE_INTERVAL = 500;
 
+// TTS 开始播放后延迟动画的时间 (毫秒)
+export const TTS_ANIMATION_DELAY = 500;
+
+// 步骤完成的最小等待时间 (毫秒)
+export const STEP_MIN_DURATION = 800;
+
+// 步骤完成检测间隔 (毫秒)
+export const STEP_COMPLETE_CHECK_INTERVAL = 100;
+
 // 时间线事件触发间隔 (毫秒)
 export const TIMELINE_EVENT_DELAY = 300;
 
@@ -65,14 +74,37 @@ export const ANNOTATION_OFFSET = 40;
 // 角度标注偏移
 export const ANGLE_ANNOTATION_OFFSET = 80;
 
+// ==================== 节点尺寸配置（基于行业标准） ====================
+// 节点内边距（参考 Mermaid 标准：15px）
+export const NODE_PADDING = 12;
+
+// 宽度限制
+export const NODE_MIN_WIDTH = 50;
+export const NODE_MAX_WIDTH = 250;
+
+// 高度限制
+export const NODE_MIN_HEIGHT = 36;
+export const NODE_MAX_HEIGHT = 100;
+export const NODE_DEFAULT_HEIGHT = 50;
+
+// 行高比例
+export const NODE_LINE_HEIGHT_RATIO = 1.4;
+
+// 字符宽度比例（估算）
+export const NODE_CHAR_WIDTH_CHINESE = 1.0;  // 中文字符 = 1.0 × fontSize
+export const NODE_CHAR_WIDTH_ENGLISH = 0.6;  // 英文字符 = 0.6 × fontSize
+
+// 圆形节点
+export const DEFAULT_NODE_RADIUS = 20;
+
 // ==================== 节点样式配置 ====================
 export const NODE_DEFAULT_OPACITY = 1;
 export const NODE_HIGHLIGHT_STROKE_WIDTH = 3;
 export const EDGE_HIGHLIGHT_STROKE_WIDTH = 3;
 
+// 保留旧配置用于向后兼容（deprecated）
 export const DEFAULT_NODE_LABEL_PADDING = 40;
 export const DEFAULT_NODE_HEIGHT = 50;
-export const DEFAULT_NODE_RADIUS = 20;
 
 // ==================== 导出统一配置对象 ====================
 export const config = {
@@ -86,6 +118,7 @@ export const config = {
     timelineDuration: TIMELINE_DURATION,
     nodeAnimationDuration: NODE_ANIMATION_DURATION,
     stepBaseInterval: STEP_BASE_INTERVAL,
+    ttsAnimationDelay: TTS_ANIMATION_DELAY,
     timelineEventDelay: TIMELINE_EVENT_DELAY,
     typingBaseDelay: TYPING_BASE_DELAY,
     typingPerCharDelay: TYPING_PER_CHAR_DELAY
@@ -115,6 +148,14 @@ export const config = {
     edgeHighlightStrokeWidth: EDGE_HIGHLIGHT_STROKE_WIDTH,
     defaultLabelPadding: DEFAULT_NODE_LABEL_PADDING,
     defaultHeight: DEFAULT_NODE_HEIGHT,
-    defaultRadius: DEFAULT_NODE_RADIUS
+    defaultRadius: DEFAULT_NODE_RADIUS,
+    padding: NODE_PADDING,
+    minWidth: NODE_MIN_WIDTH,
+    maxWidth: NODE_MAX_WIDTH,
+    minHeight: NODE_MIN_HEIGHT,
+    maxHeight: NODE_MAX_HEIGHT,
+    lineHeightRatio: NODE_LINE_HEIGHT_RATIO,
+    charWidthChinese: NODE_CHAR_WIDTH_CHINESE,
+    charWidthEnglish: NODE_CHAR_WIDTH_ENGLISH
   }
 };

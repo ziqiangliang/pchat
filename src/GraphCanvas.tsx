@@ -4,10 +4,74 @@ import {
   CANVAS_HEIGHT,
   NODE_ANIMATION_DURATION,
   ANNOTATION_OFFSET,
-  DEFAULT_NODE_LABEL_PADDING,
-  DEFAULT_NODE_HEIGHT,
+  NODE_PADDING,
+  NODE_MIN_WIDTH,
+  NODE_MAX_WIDTH,
+  NODE_MIN_HEIGHT,
+  NODE_MAX_HEIGHT,
+  NODE_DEFAULT_HEIGHT,
+  NODE_LINE_HEIGHT_RATIO,
+  NODE_CHAR_WIDTH_CHINESE,
+  NODE_CHAR_WIDTH_ENGLISH,
   DEFAULT_NODE_RADIUS
 } from './config';
+
+// 判断是否为中文字符
+function isChineseChar(char: string): boolean {
+  return /[\u4e00-\u9fa5]/.test(char);
+}
+
+// 计算文本的实际宽度（区分中英文，不含 padding）
+function calculateTextWidth(label: string, fontSize: number): number {
+  if (!label) return 0;
+
+  let textWidth = 0;
+  for (const char of label) {
+    if (isChineseChar(char)) {
+      textWidth += fontSize * NODE_CHAR_WIDTH_CHINESE;
+    } else {
+      textWidth += fontSize * NODE_CHAR_WIDTH_ENGLISH;
+    }
+  }
+
+  return textWidth;
+}
+
+// 计算基于文字内容的节点宽度（优先单行，不限制最大宽度）
+function calculateNodeWidth(label: string, fontSize: number): number {
+  if (!label) return NODE_MIN_WIDTH;
+
+  const textWidth = calculateTextWidth(label, fontSize);
+  const width = textWidth + NODE_PADDING * 2;
+
+  return Math.max(NODE_MIN_WIDTH, width);
+}
+
+// 计算基于文字内容的节点高度（优先单行，超过最大宽度才换行）
+function calculateNodeHeight(label: string, fontSize: number): number {
+  if (!label) return NODE_DEFAULT_HEIGHT;
+
+  const lineHeight = fontSize * NODE_LINE_HEIGHT_RATIO;
+  const textWidth = calculateTextWidth(label, fontSize);
+  const singleLineWidth = textWidth + NODE_PADDING * 2;
+
+  // 如果单行宽度在允许范围内，就用单行高度
+  if (singleLineWidth <= NODE_MAX_WIDTH) {
+    const height = lineHeight + NODE_PADDING * 2;
+    return Math.max(NODE_MIN_HEIGHT, Math.min(height, NODE_MAX_HEIGHT));
+  }
+
+  // 超过最大宽度，需要换行
+  // 计算每行能容纳的字符数（基于平均字符宽度）
+  const avgCharWidth = fontSize * 0.8;  // 平均字符宽度
+  const usableWidth = NODE_MAX_WIDTH - NODE_PADDING * 2;
+  const charsPerLine = Math.max(1, Math.floor(usableWidth / avgCharWidth));
+  const lines = Math.ceil(label.length / charsPerLine);
+
+  const height = lines * lineHeight + NODE_PADDING * 2;
+
+  return Math.max(NODE_MIN_HEIGHT, Math.min(height, NODE_MAX_HEIGHT));
+}
 
 interface GraphCanvasProps {
   dsl: DSL | null;
@@ -102,10 +166,10 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     const animation = nodeAnimations.get(node.id);
     const customStyle = node.style || {};
 
-    // 防御性计算尺寸
+    // 防御性计算尺寸：优先使用 DSL 中指定的尺寸，否则自动计算
     const label = node.label || '';
-    const width = node.size?.width || (label.length * style.fontSize + DEFAULT_NODE_LABEL_PADDING);
-    const height = node.size?.height || DEFAULT_NODE_HEIGHT;
+    const width = node.size?.width || calculateNodeWidth(label, style.fontSize);
+    const height = node.size?.height || calculateNodeHeight(label, style.fontSize);
     const radius = node.size?.radius || DEFAULT_NODE_RADIUS;
 
     // 动画样式

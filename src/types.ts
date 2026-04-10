@@ -113,6 +113,50 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface SmartChatConfig {
+  enableStreaming: boolean;
+  maxTokens: number;
+  modelName: string;
+  temperature: number;
+  promptMaxTokens: number;
+}
+
+export interface DrawingContext {
+  userQuestion: string;
+  currentStep: number;
+  blackboardState: import('./blackboardState').BlackboardState;
+  nodes: Map<string, Node>;
+  edges: Edge[];
+}
+
+export interface LLMSession {
+  id: string;
+  messages: Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface DrawingStep {
+  explainText: string;
+  targetArea: import('./blackboardState').AreaId;
+  node?: Node;
+  edge?: Edge;
+  animationType: AnimationType;
+  timestamp: number;
+}
+
+export interface SmartChatState {
+  isActive: boolean;
+  isStreaming: boolean;
+  currentSession: LLMSession | null;
+  drawingSteps: DrawingStep[];
+  currentDrawingStep: number;
+  config: SmartChatConfig;
+}
+
 export interface NodeStyleConfig {
   fill: string;
   stroke: string;

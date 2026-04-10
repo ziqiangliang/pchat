@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from './store';
+import { ttsService } from './ttsService';
 
 interface PlaybackControlsProps {
   totalSteps: number;
@@ -7,6 +8,7 @@ interface PlaybackControlsProps {
   onJumpToStep: (stepIndex: number) => void;
   onPrevStep: () => void;
   onNextStep: () => void;
+  currentText?: string;
 }
 
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -14,17 +16,80 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   currentStep,
   onJumpToStep,
   onPrevStep,
-  onNextStep
+  onNextStep,
+  currentText = ''
 }) => {
   const { isPaused, setIsPaused, playbackSpeed, setPlaybackSpeed } = useStore();
+  const { ttsEnabled, setTtsEnabled, ttsState, setTtsState, ttsAutoPlay, setTtsAutoPlay } = useStore();
+  const [showTtsSettings, setShowTtsSettings] = useState(false);
+
+  useEffect(() => {
+    ttsService.setStateChangeCallback((state) => {
+      setTtsState(state);
+    });
+  }, [setTtsState]);
+
+  useEffect(() => {
+    if (isPaused) {
+      ttsService.pause();
+    } else if (ttsEnabled && ttsState.isPaused) {
+      ttsService.resume();
+    }
+  }, [isPaused, ttsEnabled, ttsState.isPaused]);
+
+  useEffect(() => {
+    if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
+      const timer = setTimeout(() => {
+        if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
+          ttsService.speak(currentText, { rate: playbackSpeed });
+        }
+      }, 50);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentText, ttsEnabled, ttsAutoPlay, playbackSpeed, isPaused]);
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setPlaybackSpeed(parseFloat(e.target.value));
+    const speed = parseFloat(e.target.value);
+    setPlaybackSpeed(speed);
+    ttsService.setRate(speed);
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const stepIndex = parseInt(e.target.value, 10);
     onJumpToStep(stepIndex);
+  };
+
+  const handleTtsToggle = () => {
+    if (ttsEnabled) {
+      ttsService.stop();
+      setTtsEnabled(false);
+    } else {
+      setTtsEnabled(true);
+      if (currentText) {
+        ttsService.speak(currentText, { rate: playbackSpeed });
+      }
+    }
+  };
+
+  const handleTtsPauseResume = () => {
+    if (ttsState.isPaused) {
+      ttsService.resume();
+    } else {
+      ttsService.pause();
+    }
+  };
+
+  const handleTtsStop = () => {
+    ttsService.stop();
+  };
+
+  const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    ttsService.setVoice(e.target.value);
+  };
+
+  const handleTtsRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    ttsService.setRate(parseFloat(e.target.value));
   };
 
   const getProgressPercentage = () => {
@@ -73,6 +138,45 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             <option value="2">2x</option>
             <option value="4">4x</option>
           </select>
+
+          <div className="playback-divider" />
+
+          <button
+            className={`playback-btn playback-btn--tts ${ttsEnabled ? 'active' : ''}`}
+            onClick={handleTtsToggle}
+            title={ttsEnabled ? '关闭语音' : '开启语音'}
+          >
+            🔊
+          </button>
+
+          {ttsEnabled && ttsState.isSpeaking && (
+            <>
+              <button
+                className="playback-btn"
+                onClick={handleTtsPauseResume}
+                title={ttsState.isPaused ? '继续语音' : '暂停语音'}
+              >
+                {ttsState.isPaused ? '▶' : '⏸'}
+              </button>
+              <button
+                className="playback-btn"
+                onClick={handleTtsStop}
+                title="停止语音"
+              >
+                ⏹
+              </button>
+            </>
+          )}
+
+          {ttsEnabled && (
+            <button
+              className="playback-btn"
+              onClick={() => setShowTtsSettings(!showTtsSettings)}
+              title="语音设置"
+            >
+              ⚙
+            </button>
+          )}
         </div>
 
         <div className="playback-controls__progress">
@@ -94,6 +198,51 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             />
           </div>
         </div>
+
+        {showTtsSettings && ttsEnabled && (
+          <div className="tts-settings">
+            <div className="tts-settings__row">
+              <label className="tts-settings__label">语音</label>
+              <select
+                className="tts-settings__select"
+                value={ttsState.selectedVoice?.voiceURI || ''}
+                onChange={handleVoiceChange}
+              >
+                {ttsState.availableVoices
+                  .filter(voice => voice.lang.includes('zh') || voice.lang.includes('en'))
+                  .map(voice => (
+                    <option key={voice.voiceURI} value={voice.voiceURI}>
+                      {voice.name} ({voice.lang})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="tts-settings__row">
+              <label className="tts-settings__label">语速</label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={ttsState.rate}
+                onChange={handleTtsRateChange}
+                className="tts-settings__slider"
+              />
+              <span className="tts-settings__value">{ttsState.rate.toFixed(1)}x</span>
+            </div>
+
+            <div className="tts-settings__row">
+              <label className="tts-settings__label">自动播报</label>
+              <button
+                className={`tts-settings__toggle ${ttsAutoPlay ? 'active' : ''}`}
+                onClick={() => setTtsAutoPlay(!ttsAutoPlay)}
+              >
+                {ttsAutoPlay ? '开启' : '关闭'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

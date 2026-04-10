@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { DSL, Node, Edge, AnimationType, TimelineEvent, ChatMessage, Step } from './types';
+import { TTSState } from './ttsService';
 
 // ==================== 类型定义 ====================
+
+export type PlayMode = 'incremental' | 'replay' | null;
 
 interface GraphState {
   // DSL 数据
@@ -53,23 +56,34 @@ interface GraphState {
 
   isPaused: boolean;
   setIsPaused: (paused: boolean) => void;
+  
+  isAutoPlaying: boolean;
+  setIsAutoPlaying: (playing: boolean) => void;
 
   playbackSpeed: number;
   setPlaybackSpeed: (speed: number) => void;
 
+  // 统一播放状态管理
+  playMode: PlayMode;
+  setPlayMode: (mode: PlayMode) => void;
+  
+  playedStepCount: number;
+  setPlayedStepCount: (count: number) => void;
+  incrementPlayedStepCount: () => void;
+
   pendingSteps: Step[];
   addPendingSteps: (steps: Step[]) => void;
   clearPendingSteps: () => void;
-
-  playedStepIds: Set<string>;
-  addPlayedStepId: (id: string) => void;
-  clearPlayedStepIds: () => void;
+  shiftPendingStep: () => Step | undefined;
 
   // 只重置图形显示状态，保留 DSL
   resetGraphDisplay: () => void;
 
   // 重置图状态
   resetGraphState: () => void;
+  
+  // 停止播放（清理状态）
+  stopPlayback: () => void;
 }
 
 interface UIState {
@@ -96,6 +110,19 @@ interface UIState {
   setPastedJson: (json: string) => void;
   showJsonPanel: boolean;
   setShowJsonPanel: (show: boolean) => void;
+  
+  // 主题状态
+  isDarkMode: boolean;
+  setIsDarkMode: (dark: boolean) => void;
+  toggleDarkMode: () => void;
+
+  // TTS 状态
+  ttsEnabled: boolean;
+  setTtsEnabled: (enabled: boolean) => void;
+  ttsState: TTSState;
+  setTtsState: (state: TTSState) => void;
+  ttsAutoPlay: boolean;
+  setTtsAutoPlay: (autoPlay: boolean) => void;
 }
 
 type AppState = GraphState & UIState;
@@ -116,9 +143,11 @@ const initialGraphState = {
   displayText: '',
   isStreaming: false,
   isPaused: false,
+  isAutoPlaying: false,
   playbackSpeed: 1,
-  pendingSteps: [] as Step[],
-  playedStepIds: new Set<string>()
+  playMode: null as PlayMode,
+  playedStepCount: 0,
+  pendingSteps: [] as Step[]
 };
 
 const initialUIState = {
@@ -128,11 +157,24 @@ const initialUIState = {
   loadingStartTime: null,
   error: null,
   pastedJson: '',
-  showJsonPanel: false
+  showJsonPanel: false,
+  isDarkMode: false,
+  ttsEnabled: true,
+  ttsState: {
+    isSpeaking: false,
+    isPaused: false,
+    currentText: '',
+    availableVoices: [],
+    selectedVoice: null,
+    rate: 1,
+    pitch: 1,
+    volume: 1
+  } as TTSState,
+  ttsAutoPlay: true
 };
 
 // ==================== Store ====================
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   // ...图状态
   ...initialGraphState,
 
@@ -152,15 +194,22 @@ export const useStore = create<AppState>((set) => ({
 
   setIsStreaming: (streaming) => set({ isStreaming: streaming }),
   setIsPaused: (paused) => set({ isPaused: paused }),
+  setIsAutoPlaying: (playing) => set({ isAutoPlaying: playing }),
   setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
+  
+  setPlayMode: (mode) => set({ playMode: mode }),
+  setPlayedStepCount: (count) => set({ playedStepCount: count }),
+  incrementPlayedStepCount: () => set((state) => ({ playedStepCount: state.playedStepCount + 1 })),
+  
   addPendingSteps: (steps) => set((state) => ({ pendingSteps: [...state.pendingSteps, ...steps] })),
   clearPendingSteps: () => set({ pendingSteps: [] }),
-  addPlayedStepId: (id) => set((state) => {
-    const newSet = new Set(state.playedStepIds);
-    newSet.add(id);
-    return { playedStepIds: newSet };
-  }),
-  clearPlayedStepIds: () => set({ playedStepIds: new Set() }),
+  shiftPendingStep: () => {
+    const state = get();
+    if (state.pendingSteps.length === 0) return undefined;
+    const [first, ...rest] = state.pendingSteps;
+    set({ pendingSteps: rest });
+    return first;
+  },
 
   // 只重置图形显示状态，保留 DSL（用于步骤跳转）
   resetGraphDisplay: () => set({
@@ -176,7 +225,8 @@ export const useStore = create<AppState>((set) => ({
     timelineAnimations: new Map(),
     displayText: '',
     pendingSteps: [],
-    playedStepIds: new Set(),
+    playedStepCount: 0,
+    playMode: null
   }),
 
   resetGraphState: () => set({
@@ -194,10 +244,21 @@ export const useStore = create<AppState>((set) => ({
     displayText: '',
     isStreaming: false,
     isPaused: false,
+    isAutoPlaying: false,
     playbackSpeed: 1,
     pendingSteps: [],
-    playedStepIds: new Set()
+    playedStepCount: 0,
+    playMode: null
   }),
+  
+  stopPlayback: () => {
+    const state = get();
+    set({ 
+      isAutoPlaying: false, 
+      playMode: null,
+      pendingSteps: []
+    });
+  },
 
   // ...UI状态
   ...initialUIState,
@@ -212,5 +273,11 @@ export const useStore = create<AppState>((set) => ({
   setLoadingStartTime: (time) => set({ loadingStartTime: time }),
   setError: (error) => set({ error }),
   setPastedJson: (json) => set({ pastedJson: json }),
-  setShowJsonPanel: (show) => set({ showJsonPanel: show })
+  setShowJsonPanel: (show) => set({ showJsonPanel: show }),
+  setIsDarkMode: (dark) => set({ isDarkMode: dark }),
+  toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
+  
+  setTtsEnabled: (enabled) => set({ ttsEnabled: enabled }),
+  setTtsState: (state) => set({ ttsState: state }),
+  setTtsAutoPlay: (autoPlay) => set({ ttsAutoPlay: autoPlay })
 }));
