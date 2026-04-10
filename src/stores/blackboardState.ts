@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from './config';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../config';
 
 export type AreaId = 
   | 'top-left' 

@@ -1,11 +1,11 @@
 import { 
   BlackboardState, 
   updateAreaOccupation
-} from './blackboardState';
+} from '../stores/blackboardState';
 import { 
   createFullPrompt, 
   parseLLMOutput
-} from './instructionTransformer';
+} from '../utils/instructionTransformer';
 import { 
   createNodeFromDrawLogic, 
   createEdgeFromDrawLogic
@@ -15,8 +15,8 @@ import {
   Edge, 
   SmartChatConfig,
   DrawingStep
-} from './types';
-import { useSmartChatStore, createNewSession } from './smartChatStore';
+} from '../types';
+import { useSmartChatStore, createNewSession } from '../stores/smartChatStore';
 
 export interface SmartChatCallbacks {
   onExplainText: (text: string) => void;

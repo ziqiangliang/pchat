@@ -1,16 +1,13 @@
-import { Step, DSL } from './types';
-import { useStore, PlayMode } from './store';
-import { ttsService } from './ttsService';
+import { Step, DSL } from '../types';
+import { useStore, PlayMode } from '../stores/store';
+import { ttsService } from '../services/ttsService';
 import {
   TTS_ANIMATION_DELAY,
   STEP_MIN_DURATION,
   TYPING_BASE_DELAY,
   TYPING_PER_CHAR_DELAY,
-  NODE_ANIMATION_DURATION,
-  TIMELINE_DURATION,
-  TIMELINE_EVENT_DELAY,
   STEP_BASE_INTERVAL
-} from './config';
+} from '../config';
 
 type ExecuteStepFn = (step: Step, stepIndex: number) => number;
 type StartTypingFn = (text: string, onComplete?: () => void) => void;
@@ -24,7 +21,6 @@ interface StepPlayerConfig {
 
 class StepPlayer {
   private config: StepPlayerConfig;
-  private abortController: AbortController | null = null;
   private isInitialized: boolean = false;
   private animationTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private sessionId: number = 0;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSmartChat } from './useSmartChat';
-import { Node, Edge } from './types';
+import { useSmartChat } from '../hooks/useSmartChat';
+import { Node, Edge } from '../types';
 
 interface SmartChatInterfaceProps {
   onNodesUpdate?: (nodes: Map<string, Node>) => void;

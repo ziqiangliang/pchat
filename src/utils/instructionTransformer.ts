@@ -1,5 +1,5 @@
-import { BlackboardState, generateCompactSummary, AreaId } from './blackboardState';
-import { Node, Edge, Step } from './types';
+import { BlackboardState, generateCompactSummary, AreaId } from '../stores/blackboardState';
+import { Node, Edge, Step } from '../types';
 
 export interface LLMOutput {
   explainText: string;

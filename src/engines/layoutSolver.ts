@@ -1,4 +1,4 @@
-import { Node, Edge, LayoutHints, Position, Constraint } from './types';
+import { Node, Edge, LayoutHints, Position, Constraint } from '../types';
 import {
   CENTER_X,
   CENTER_Y,
@@ -15,7 +15,7 @@ import {
   BAR_WIDTH,
   BAR_MAX_HEIGHT,
   BAR_BASE_Y
-} from './config';
+} from '../config';
 
 /**
  * 布局求解器

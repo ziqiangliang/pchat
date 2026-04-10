@@ -1,5 +1,5 @@
-import { Node, Edge, Position } from './types';
-import { ANNOTATION_OFFSET, ANGLE_ANNOTATION_OFFSET } from './config';
+import { Node, Edge, Position } from '../types';
+import { ANNOTATION_OFFSET, ANGLE_ANNOTATION_OFFSET } from '../config';
 
 /**
  * 标注布局引擎

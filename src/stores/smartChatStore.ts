@@ -6,7 +6,7 @@ import {
   DrawingStep,
   Node,
   Edge 
-} from './types';
+} from '../types';
 import { 
   BlackboardState, 
   createInitialBlackboardState 

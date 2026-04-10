@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { SmartChatEngine, createSmartChatEngine, SmartChatCallbacks } from './SmartChatEngine';
-import { useSmartChatStore } from './smartChatStore';
-import { Node, Edge, SmartChatConfig } from './types';
+import { SmartChatEngine, createSmartChatEngine, SmartChatCallbacks } from '../engines/SmartChatEngine';
+import { useSmartChatStore } from '../stores/smartChatStore';
+import { Node, Edge, SmartChatConfig } from '../types';
 
 export interface UseSmartChatReturn {
   isActive: boolean;
@@ -10,7 +10,7 @@ export interface UseSmartChatReturn {
   totalSteps: number;
   nodes: Map<string, Node>;
   edges: Edge[];
-  drawingSteps: import('./types').DrawingStep[];
+  drawingSteps: import('../types').DrawingStep[];
   startDrawing: (question: string) => Promise<void>;
   stopDrawing: () => void;
   resetDrawing: () => void;

@@ -3,21 +3,21 @@ import {
   BlackboardState, 
   getAreaCoord, 
   getElementCountInArea 
-} from './blackboardState';
+} from '../stores/blackboardState';
 import { 
   Node, 
   Edge, 
   Step, 
   AnimationType,
   NODE_STYLES 
-} from './types';
+} from '../types';
 import { 
   CANVAS_WIDTH, 
   CANVAS_HEIGHT, 
   NODE_ANIMATION_DURATION,
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_LABEL_PADDING
-} from './config';
+} from '../config';
 
 export interface RenderElement {
   node?: Node;

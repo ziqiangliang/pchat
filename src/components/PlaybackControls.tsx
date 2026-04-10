@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useStore } from './store';
-import { ttsService } from './ttsService';
+import { useStore } from '../stores/store';
+import { ttsService } from '../services/ttsService';
 
 interface PlaybackControlsProps {
   totalSteps: number;

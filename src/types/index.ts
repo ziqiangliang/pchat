@@ -124,7 +124,7 @@ export interface SmartChatConfig {
 export interface DrawingContext {
   userQuestion: string;
   currentStep: number;
-  blackboardState: import('./blackboardState').BlackboardState;
+  blackboardState: import('../stores/blackboardState').BlackboardState;
   nodes: Map<string, Node>;
   edges: Edge[];
 }
@@ -141,7 +141,7 @@ export interface LLMSession {
 
 export interface DrawingStep {
   explainText: string;
-  targetArea: import('./blackboardState').AreaId;
+  targetArea: import('../stores/blackboardState').AreaId;
   node?: Node;
   edge?: Edge;
   animationType: AnimationType;

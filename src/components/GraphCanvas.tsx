@@ -1,5 +1,5 @@
 import React, { useMemo, memo } from 'react';
-import { Node, Edge, Position, DSL, AnimationType, TimelineEvent, NODE_STYLES } from './types';
+import { Node, Edge, Position, DSL, AnimationType, TimelineEvent, NODE_STYLES } from '../types';
 import {
   CANVAS_HEIGHT,
   NODE_ANIMATION_DURATION,
@@ -14,7 +14,7 @@ import {
   NODE_CHAR_WIDTH_CHINESE,
   NODE_CHAR_WIDTH_ENGLISH,
   DEFAULT_NODE_RADIUS
-} from './config';
+} from '../config';
 
 // 判断是否为中文字符
 function isChineseChar(char: string): boolean {

@@ -1,8 +1,8 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useStore } from '../store';
-import { Step, DSL } from '../types';
+import { useStore } from '../stores/store';
+import { Step } from '../types';
 import { NODE_ANIMATION_DURATION, TIMELINE_DURATION, TIMELINE_EVENT_DELAY, TYPING_BASE_DELAY, TYPING_PER_CHAR_DELAY, STEP_BASE_INTERVAL } from '../config';
-import { StepPlayer } from '../stepPlayer';
+import { StepPlayer } from '../engines/stepPlayer';
 
 interface GraphControlsReturn {
   executeStep: (step: Step, stepIndex: number) => number;

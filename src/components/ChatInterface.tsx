@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ChatMessage } from './types';
+import { ChatMessage } from '../types';
 
 interface ChatInterfaceProps {
   chatHistory: ChatMessage[];

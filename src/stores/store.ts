@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { DSL, Node, Edge, AnimationType, TimelineEvent, ChatMessage, Step } from './types';
-import { TTSState } from './ttsService';
+import { DSL, Node, Edge, AnimationType, TimelineEvent, ChatMessage, Step } from '../types';
+import { TTSState } from '../services/ttsService';
 
 // ==================== 类型定义 ====================
 
@@ -252,7 +252,6 @@ export const useStore = create<AppState>((set, get) => ({
   }),
   
   stopPlayback: () => {
-    const state = get();
     set({ 
       isAutoPlaying: false, 
       playMode: null,
