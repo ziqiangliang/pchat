@@ -183,8 +183,8 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     }
 
     const fill = customStyle.fill || style.fill;
-    const stroke = customStyle.border || (isHighlighted ? '#3b82f6' : style.stroke);
-    const strokeWidth = isHighlighted ? 3 : style.strokeWidth;
+    const stroke = customStyle.border || (isHighlighted ? '#FF8A65' : style.stroke);
+    const strokeWidth = isHighlighted ? 3.5 : style.strokeWidth;
     const baseOpacity = customStyle.opacity ?? 1;
     const opacity = isVisible ? baseOpacity : 0;
 
@@ -204,7 +204,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             strokeWidth={strokeWidth}
             opacity={opacity}
             style={{
-              filter: isHighlighted ? 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.4))' : 'none',
+              filter: isHighlighted ? 'drop-shadow(0 4px 12px rgba(255, 138, 101, 0.5))' : 'drop-shadow(0 2px 4px rgba(93, 64, 55, 0.1))',
               transition: 'opacity 0.3s ease, filter 0.3s ease'
             }}
           />
@@ -216,7 +216,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             strokeWidth={strokeWidth}
             opacity={opacity}
             style={{
-              filter: isHighlighted ? 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.4))' : 'none',
+              filter: isHighlighted ? 'drop-shadow(0 4px 12px rgba(255, 138, 101, 0.5))' : 'drop-shadow(0 2px 4px rgba(93, 64, 55, 0.1))',
               transition: 'opacity 0.3s ease, filter 0.3s ease'
             }}
           />
@@ -226,13 +226,13 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             y={pos.y - height / 2}
             width={width}
             height={height}
-            rx={8}
+            rx={12}
             fill={fill}
             stroke={stroke}
             strokeWidth={strokeWidth}
             opacity={opacity}
             style={{
-              filter: isHighlighted ? 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.4))' : 'none',
+              filter: isHighlighted ? 'drop-shadow(0 4px 12px rgba(255, 138, 101, 0.5))' : 'drop-shadow(0 2px 4px rgba(93, 64, 55, 0.1))',
               transition: 'opacity 0.3s ease, filter 0.3s ease'
             }}
           />
@@ -244,7 +244,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           textAnchor="middle"
           fontSize={style.fontSize}
           fontWeight={isHighlighted ? 'bold' : style.fontWeight}
-          fill={customStyle.color || '#1e293b'}
+          fill={customStyle.color || '#5D4037'}
           opacity={opacity}
           style={{ transition: 'opacity 0.3s ease' }}
         >
@@ -282,17 +282,17 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           y1={fromPos.y}
           x2={toPos.x}
           y2={toPos.y}
-          stroke={event.color || '#ec4899'}
+          stroke={event.color || '#F48FB1'}
           strokeWidth={2}
-          strokeDasharray="4,4"
+          strokeDasharray="6,4"
           opacity={0.5}
         />
         <circle
           cx={currentX}
           cy={currentY}
           r={12}
-          fill={event.color || '#ec4899'}
-          stroke="#be185d"
+          fill={event.color || '#F48FB1'}
+          stroke="#EC407A"
           strokeWidth={2}
         />
         <text
@@ -312,7 +312,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             textAnchor="middle"
             fontSize={11}
             fontWeight="bold"
-            fill={event.color || '#ec4899'}
+            fill={event.color || '#F48FB1'}
           >
             {event.label}
           </text>
@@ -334,7 +334,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     const edgeKey = `${edge.from}-${edge.to}`;
     const isHighlighted = highlightedEdges.has(edgeKey);
     const edgeStyle = edge.style || {};
-    const stroke = edgeStyle.color || (isHighlighted ? '#3b82f6' : '#94a3b8');
+    const stroke = edgeStyle.color || (isHighlighted ? '#FF8A65' : '#A1887F');
     const strokeWidth = edgeStyle.width || (isHighlighted ? 3 : 2);
     const opacity = isVisible ? 1 : 0;
 
@@ -361,7 +361,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           markerEnd={edge.type === 'arrow' || edge.type === undefined ? 'url(#arrowhead)' : ''}
           opacity={opacity}
           style={{
-            filter: isHighlighted ? 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))' : 'none',
+            filter: isHighlighted ? 'drop-shadow(0 2px 6px rgba(255, 138, 101, 0.4))' : 'none',
             transition: 'opacity 0.3s ease, filter 0.3s ease'
           }}
         />
@@ -399,7 +399,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       <svg
         width="100%"
         height={CANVAS_HEIGHT}
-        style={{ background: '#ffffff' }}
+        style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #FFFBF7 100%)' }}
       >
         <defs>
           <marker
@@ -410,7 +410,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             refY="3.5"
             orient="auto"
           >
-            <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+            <polygon points="0 0, 10 3.5, 0 7" fill="#A1887F" />
           </marker>
         </defs>
 

@@ -168,57 +168,57 @@ export interface NodeStyleConfig {
 
 export const NODE_STYLES: Record<NodeType, NodeStyleConfig> = {
   vertex: {
-    fill: '#3b82f6',
-    stroke: '#1e40af',
-    strokeWidth: 2,
+    fill: '#81C784',
+    stroke: '#4CAF50',
+    strokeWidth: 2.5,
     fontSize: 12,
     fontWeight: 'bold',
     shape: 'circle'
   },
   concept: {
-    fill: '#f8fafc',
-    stroke: '#64748b',
+    fill: '#FFFFFF',
+    stroke: '#A1887F',
     strokeWidth: 2,
     fontSize: 14,
-    fontWeight: 'normal',
+    fontWeight: '500',
     shape: 'rect'
   },
   dataPoint: {
-    fill: '#10b981',
-    stroke: '#047857',
-    strokeWidth: 2,
+    fill: '#64B5F6',
+    stroke: '#42A5F5',
+    strokeWidth: 2.5,
     fontSize: 12,
     fontWeight: 'bold',
     shape: 'circle'
   },
   annotation: {
-    fill: '#fbbf24',
-    stroke: '#d97706',
+    fill: '#FFE082',
+    stroke: '#FFB74D',
     strokeWidth: 2,
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: '600',
     shape: 'rect'
   },
   image: {
-    fill: '#e0e7ff',
-    stroke: '#6366f1',
+    fill: '#E1BEE7',
+    stroke: '#B39DDB',
     strokeWidth: 2,
     fontSize: 10,
-    fontWeight: 'normal',
+    fontWeight: '500',
     shape: 'rect'
   },
   process: {
-    fill: '#fef3c7',
-    stroke: '#f59e0b',
+    fill: '#FFCCBC',
+    stroke: '#FF8A65',
     strokeWidth: 2,
     fontSize: 13,
-    fontWeight: 'normal',
+    fontWeight: '500',
     shape: 'rect'
   },
   event: {
-    fill: '#ec4899',
-    stroke: '#be185d',
-    strokeWidth: 2,
+    fill: '#F48FB1',
+    stroke: '#EC407A',
+    strokeWidth: 2.5,
     fontSize: 11,
     fontWeight: 'bold',
     shape: 'circle'
