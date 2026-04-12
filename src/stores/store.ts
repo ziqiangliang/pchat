@@ -159,7 +159,7 @@ const initialUIState = {
   pastedJson: '',
   showJsonPanel: false,
   isDarkMode: false,
-  ttsEnabled: true,
+  ttsEnabled: false,
   ttsState: {
     isSpeaking: false,
     isPaused: false,
@@ -168,9 +168,10 @@ const initialUIState = {
     selectedVoice: null,
     rate: 1,
     pitch: 1,
-    volume: 1
+    volume: 1,
+    isSupported: false
   } as TTSState,
-  ttsAutoPlay: true
+  ttsAutoPlay: false
 };
 
 // ==================== Store ====================

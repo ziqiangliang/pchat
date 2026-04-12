@@ -13,11 +13,28 @@ export type TTSState = {
   rate: number;
   pitch: number;
   volume: number;
+  isSupported: boolean;
 };
 
+const TTS_TIMEOUT = 30000;
+const TTS_FALLBACK_DELAY = 2000;
+
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function isProblematicBrowser(): boolean {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('huawei') || 
+         ua.includes('honor') || 
+         ua.includes('harmony') ||
+         (ua.includes('android') && ua.includes('micromessenger'));
+}
+
 class TTSService {
-  private synthesis: SpeechSynthesis;
+  private synthesis: SpeechSynthesis | null = null;
   private utterance: SpeechSynthesisUtterance | null = null;
+  private supported: boolean = false;
   private state: TTSState = {
     isSpeaking: false,
     isPaused: false,
@@ -26,24 +43,33 @@ class TTSService {
     selectedVoice: null,
     rate: 1,
     pitch: 1,
-    volume: 1
+    volume: 1,
+    isSupported: false
   };
   private onStateChange: ((state: TTSState) => void) | null = null;
   private onSpeakStart: (() => void) | null = null;
   private onSpeakEnd: (() => void) | null = null;
   private speakTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastSpokenText: string = '';
+  private fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    this.synthesis = window.speechSynthesis;
-    this.loadVoices();
+    this.supported = 'speechSynthesis' in window && !isProblematicBrowser();
+    this.state.isSupported = this.supported;
     
-    if (this.synthesis.onvoiceschanged !== undefined) {
-      this.synthesis.onvoiceschanged = () => this.loadVoices();
+    if (this.supported) {
+      this.synthesis = window.speechSynthesis;
+      this.loadVoices();
+      
+      if (this.synthesis!.onvoiceschanged !== undefined) {
+        this.synthesis!.onvoiceschanged = () => this.loadVoices();
+      }
     }
   }
 
   private loadVoices() {
+    if (!this.synthesis) return;
+    
     const voices = this.synthesis.getVoices();
     const ttsVoices: TTSVoice[] = voices.map(voice => ({
       name: voice.name,
@@ -95,93 +121,155 @@ class TTSService {
       this.speakTimeoutId = null;
     }
 
+    if (this.fallbackTimeoutId) {
+      clearTimeout(this.fallbackTimeoutId);
+      this.fallbackTimeoutId = null;
+    }
+
     if (text === this.lastSpokenText && this.state.isSpeaking) {
       return;
     }
 
     this.stop(true);
 
+    if (!this.supported || !this.synthesis) {
+      this.fallbackSpeak(text);
+      return;
+    }
+
     this.lastSpokenText = text;
     this.performSpeak(text, options);
   }
 
-  private performSpeak(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
-    this.utterance = new SpeechSynthesisUtterance(text);
+  private fallbackSpeak(text: string) {
+    this.state.isSpeaking = true;
+    this.state.isPaused = false;
+    this.state.currentText = text;
+    this.notifyStateChange();
     
-    if (this.state.selectedVoice) {
-      const voice = this.synthesis.getVoices().find(v => v.voiceURI === this.state.selectedVoice!.voiceURI);
-      if (voice) {
-        this.utterance.voice = voice;
-      }
+    if (this.onSpeakStart) {
+      this.onSpeakStart();
     }
 
-    this.utterance.rate = options?.rate ?? this.state.rate;
-    this.utterance.pitch = options?.pitch ?? this.state.pitch;
-    this.utterance.volume = options?.volume ?? this.state.volume;
-
-    this.utterance.onstart = () => {
-      this.state.isSpeaking = true;
-      this.state.isPaused = false;
-      this.state.currentText = text;
-      this.notifyStateChange();
-      
-      if (this.onSpeakStart) {
-        this.onSpeakStart();
-      }
-    };
-
-    this.utterance.onend = () => {
+    const estimatedDuration = Math.max(2000, text.length * 100);
+    
+    this.fallbackTimeoutId = setTimeout(() => {
       this.state.isSpeaking = false;
       this.state.isPaused = false;
-      if (this.state.currentText === text) {
-        this.state.currentText = '';
-      }
+      this.state.currentText = '';
       this.notifyStateChange();
 
       if (this.onSpeakEnd) {
         this.onSpeakEnd();
       }
-    };
+    }, estimatedDuration);
+  }
 
-    this.utterance.onerror = (event) => {
-      if (event.error === 'interrupted' || event.error === 'canceled') {
-        return;
-      }
-      
-      console.warn('TTS Error:', event.error);
-      this.state.isSpeaking = false;
-      this.state.isPaused = false;
-      this.notifyStateChange();
-    };
-
-    this.utterance.onpause = () => {
-      this.state.isPaused = true;
-      this.notifyStateChange();
-    };
-
-    this.utterance.onresume = () => {
-      this.state.isPaused = false;
-      this.notifyStateChange();
-    };
+  private performSpeak(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
+    if (!this.synthesis) {
+      this.fallbackSpeak(text);
+      return;
+    }
 
     try {
+      this.utterance = new SpeechSynthesisUtterance(text);
+      
+      if (this.state.selectedVoice) {
+        const voice = this.synthesis.getVoices().find(v => v.voiceURI === this.state.selectedVoice!.voiceURI);
+        if (voice) {
+          this.utterance.voice = voice;
+        }
+      }
+
+      this.utterance.rate = options?.rate ?? this.state.rate;
+      this.utterance.pitch = options?.pitch ?? this.state.pitch;
+      this.utterance.volume = options?.volume ?? this.state.volume;
+
+      this.utterance.onstart = () => {
+        this.state.isSpeaking = true;
+        this.state.isPaused = false;
+        this.state.currentText = text;
+        this.notifyStateChange();
+        
+        if (this.onSpeakStart) {
+          this.onSpeakStart();
+        }
+      };
+
+      this.utterance.onend = () => {
+        if (this.speakTimeoutId) {
+          clearTimeout(this.speakTimeoutId);
+          this.speakTimeoutId = null;
+        }
+        this.state.isSpeaking = false;
+        this.state.isPaused = false;
+        if (this.state.currentText === text) {
+          this.state.currentText = '';
+        }
+        this.notifyStateChange();
+
+        if (this.onSpeakEnd) {
+          this.onSpeakEnd();
+        }
+      };
+
+      this.utterance.onerror = (event) => {
+        if (event.error === 'interrupted' || event.error === 'canceled') {
+          return;
+        }
+        
+        console.warn('TTS Error:', event.error);
+        this.state.isSpeaking = false;
+        this.state.isPaused = false;
+        this.notifyStateChange();
+        
+        if (this.onSpeakEnd) {
+          this.onSpeakEnd();
+        }
+      };
+
+      this.utterance.onpause = () => {
+        this.state.isPaused = true;
+        this.notifyStateChange();
+      };
+
+      this.utterance.onresume = () => {
+        this.state.isPaused = false;
+        this.notifyStateChange();
+      };
+
       this.synthesis.speak(this.utterance);
+
+      this.speakTimeoutId = setTimeout(() => {
+        if (this.state.isSpeaking) {
+          console.warn('TTS timeout, forcing end');
+          this.stop();
+          if (this.onSpeakEnd) {
+            this.onSpeakEnd();
+          }
+        }
+      }, TTS_TIMEOUT);
+
     } catch (error) {
       console.warn('TTS speak error:', error);
       this.state.isSpeaking = false;
       this.state.isPaused = false;
       this.notifyStateChange();
+      
+      if (this.onSpeakEnd) {
+        this.onSpeakEnd();
+      }
     }
   }
 
   pause() {
-    if (this.state.isSpeaking && !this.state.isPaused) {
+    if (this.state.isSpeaking && !this.state.isPaused && this.synthesis) {
       this.synthesis.pause();
     }
   }
 
   resume() {
-    if (this.state.isSpeaking && this.state.isPaused) {
+    if (this.state.isSpeaking && this.state.isPaused && this.synthesis) {
       this.synthesis.resume();
     }
   }
@@ -192,11 +280,18 @@ class TTSService {
       this.speakTimeoutId = null;
     }
     
-    try {
-      this.synthesis.cancel();
-    } catch (error) {
-      if (!silent) {
-        console.warn('TTS cancel error:', error);
+    if (this.fallbackTimeoutId) {
+      clearTimeout(this.fallbackTimeoutId);
+      this.fallbackTimeoutId = null;
+    }
+    
+    if (this.synthesis) {
+      try {
+        this.synthesis.cancel();
+      } catch (error) {
+        if (!silent) {
+          console.warn('TTS cancel error:', error);
+        }
       }
     }
     
@@ -230,7 +325,7 @@ class TTSService {
   }
 
   isSupported(): boolean {
-    return 'speechSynthesis' in window;
+    return this.supported;
   }
 }
 

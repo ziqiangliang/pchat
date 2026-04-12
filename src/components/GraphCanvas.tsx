@@ -1,6 +1,7 @@
 import React, { useMemo, memo } from 'react';
 import { Node, Edge, Position, DSL, AnimationType, TimelineEvent, NODE_STYLES } from '../types';
 import {
+  CANVAS_WIDTH,
   CANVAS_HEIGHT,
   NODE_ANIMATION_DURATION,
   ANNOTATION_OFFSET,
@@ -16,13 +17,12 @@ import {
   DEFAULT_NODE_RADIUS
 } from '../config';
 import { layoutOptimizer } from '../engines/layoutOptimizer';
+import { useCanvasGesture } from '../hooks/useCanvasGesture';
 
-// 判断是否为中文字符
 function isChineseChar(char: string): boolean {
   return /[\u4e00-\u9fa5]/.test(char);
 }
 
-// 计算文本的实际宽度（区分中英文，不含 padding）
 function calculateTextWidth(label: string, fontSize: number): number {
   if (!label) return 0;
 
@@ -38,7 +38,6 @@ function calculateTextWidth(label: string, fontSize: number): number {
   return textWidth;
 }
 
-// 计算基于文字内容的节点宽度（优先单行，不限制最大宽度）
 function calculateNodeWidth(label: string, fontSize: number): number {
   if (!label) return NODE_MIN_WIDTH;
 
@@ -48,7 +47,6 @@ function calculateNodeWidth(label: string, fontSize: number): number {
   return Math.max(NODE_MIN_WIDTH, width);
 }
 
-// 计算基于文字内容的节点高度（优先单行，超过最大宽度才换行）
 function calculateNodeHeight(label: string, fontSize: number): number {
   if (!label) return NODE_DEFAULT_HEIGHT;
 
@@ -56,15 +54,12 @@ function calculateNodeHeight(label: string, fontSize: number): number {
   const textWidth = calculateTextWidth(label, fontSize);
   const singleLineWidth = textWidth + NODE_PADDING * 2;
 
-  // 如果单行宽度在允许范围内，就用单行高度
   if (singleLineWidth <= NODE_MAX_WIDTH) {
     const height = lineHeight + NODE_PADDING * 2;
     return Math.max(NODE_MIN_HEIGHT, Math.min(height, NODE_MAX_HEIGHT));
   }
 
-  // 超过最大宽度，需要换行
-  // 计算每行能容纳的字符数（基于平均字符宽度）
-  const avgCharWidth = fontSize * 0.8;  // 平均字符宽度
+  const avgCharWidth = fontSize * 0.8;
   const usableWidth = NODE_MAX_WIDTH - NODE_PADDING * 2;
   const charsPerLine = Math.max(1, Math.floor(usableWidth / avgCharWidth));
   const lines = Math.ceil(label.length / charsPerLine);
@@ -103,12 +98,22 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   currentText,
   currentStep
 }) => {
-  // 防御性计算：positions
+  const {
+    viewport,
+    containerRef,
+    handleWheel,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    zoomIn,
+    zoomOut,
+    resetViewport
+  } = useCanvasGesture(CANVAS_WIDTH, CANVAS_HEIGHT);
+
   const positions = useMemo(() => {
     const allNodes = nodes ? Array.from(nodes.values()) : [];
     const posMap = new Map<string, Position>();
 
-    // 防御性检查：确保 allNodes 是数组
     if (!Array.isArray(allNodes)) {
       return posMap;
     }
@@ -123,14 +128,11 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       posMap.set(id, pos);
     });
 
-    // 处理标注节点
     allNodes
       .filter(node => node && node.type === 'annotation' && node.target)
       .forEach(annotation => {
-        // 防御性检查
         if (!annotation || !annotation.id) return;
 
-        // 如果已经有坐标，跳过
         if (annotation.x !== undefined && annotation.y !== undefined) {
           return;
         }
@@ -153,25 +155,20 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   }, [nodes, edges]);
 
   const renderNode = (node: Node, pos: Position, isVisible: boolean) => {
-    // 防御性检查
     if (!node || !node.id || !pos) return null;
 
     const nodeType = node.type || 'concept';
-
-    // 防御性检查：获取节点样式
     const style = NODE_STYLES[nodeType] || NODE_STYLES.concept;
 
     const isHighlighted = highlightedNodes.has(node.id);
     const animation = nodeAnimations.get(node.id);
     const customStyle = node.style || {};
 
-    // 防御性计算尺寸：优先使用 DSL 中指定的尺寸，否则自动计算
     const label = node.label || '';
     const width = node.size?.width || calculateNodeWidth(label, style.fontSize);
     const height = node.size?.height || calculateNodeHeight(label, style.fontSize);
     const radius = node.size?.radius || DEFAULT_NODE_RADIUS;
 
-    // 动画样式
     let animationStyle = {};
     if (animation === 'fade') {
       animationStyle = { animation: `fadeIn ${NODE_ANIMATION_DURATION}ms ease` };
@@ -254,13 +251,11 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   };
 
   const renderTimelineEvent = (event: TimelineEvent) => {
-    // 防御性检查
     if (!event || !event.from || !event.to) return null;
 
     const fromPos = positions.get(event.from);
     const toPos = positions.get(event.to);
 
-    // 防御性检查：确保位置存在
     if (!fromPos || !toPos) return null;
 
     const anim = timelineAnimations.get(event.id);
@@ -321,13 +316,11 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   };
 
   const renderEdge = (edge: Edge, isVisible: boolean) => {
-    // 防御性检查
     if (!edge || !edge.from || !edge.to) return null;
 
     const fromPos = positions.get(edge.from);
     const toPos = positions.get(edge.to);
 
-    // 防御性检查：确保位置存在
     if (!fromPos || !toPos) return null;
 
     const edgeKey = `${edge.from}-${edge.to}`;
@@ -382,23 +375,46 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     );
   };
 
-  // 防御性检查：确保 edges 是数组
   const safeEdges = Array.isArray(edges) ? edges : [];
   const safeNodes = nodes ? Array.from(nodes.values()) : [];
   const safeVisibleNodeIds = visibleNodeIds instanceof Set ? visibleNodeIds : new Set<string>();
   const safeVisibleEdgeIds = visibleEdgeIds instanceof Set ? visibleEdgeIds : new Set<string>();
 
+  const svgTransform = `translate(${viewport.offsetX}, ${viewport.offsetY}) scale(${viewport.scale})`;
+
   return (
-    <div className="svg-container">
+    <div 
+      className="svg-container"
+      ref={containerRef}
+      style={{ touchAction: 'none' }}
+    >
       {currentText && (
         <div className="step-text">
           {currentText}
         </div>
       )}
+      
+      <div className="canvas-controls">
+        <button onClick={zoomOut} className="canvas-control-btn" title="缩小">
+          −
+        </button>
+        <span className="zoom-level">{Math.round(viewport.scale * 100)}%</span>
+        <button onClick={zoomIn} className="canvas-control-btn" title="放大">
+          +
+        </button>
+        <button onClick={resetViewport} className="canvas-control-btn" title="重置">
+          ⟲
+        </button>
+      </div>
+
       <svg
         width="100%"
         height={CANVAS_HEIGHT}
         style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #FFFBF7 100%)' }}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <defs>
           <marker
@@ -413,12 +429,14 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           </marker>
         </defs>
 
-        {safeEdges.map(edge => renderEdge(edge, safeVisibleEdgeIds.has(`${edge.from}-${edge.to}`)))}
-        {activeTimelineEvents.map(event => renderTimelineEvent(event))}
-        {safeNodes.map(node => {
-          const pos = positions.get(node.id);
-          return pos ? renderNode(node, pos, safeVisibleNodeIds.has(node.id)) : null;
-        })}
+        <g transform={svgTransform}>
+          {safeEdges.map(edge => renderEdge(edge, safeVisibleEdgeIds.has(`${edge.from}-${edge.to}`)))}
+          {activeTimelineEvents.map(event => renderTimelineEvent(event))}
+          {safeNodes.map(node => {
+            const pos = positions.get(node.id);
+            return pos ? renderNode(node, pos, safeVisibleNodeIds.has(node.id)) : null;
+          })}
+        </g>
       </svg>
 
       {dsl && dsl.steps && (
