@@ -102,6 +102,12 @@ export const NODE_DEFAULT_OPACITY = 1;
 export const NODE_HIGHLIGHT_STROKE_WIDTH = 3;
 export const EDGE_HIGHLIGHT_STROKE_WIDTH = 3;
 
+// ==================== 布局优化器配置 ====================
+export const LAYOUT_OPTIMIZER_ENABLED = true;
+export const LAYOUT_MIN_NODE_DISTANCE = 60;
+export const LAYOUT_NODE_BOUNDARY_PADDING = 30;
+export const LAYOUT_MAX_ITERATIONS = 30;
+
 // 保留旧配置用于向后兼容（deprecated）
 export const DEFAULT_NODE_LABEL_PADDING = 40;
 export const DEFAULT_NODE_HEIGHT = 50;
@@ -157,5 +163,11 @@ export const config = {
     lineHeightRatio: NODE_LINE_HEIGHT_RATIO,
     charWidthChinese: NODE_CHAR_WIDTH_CHINESE,
     charWidthEnglish: NODE_CHAR_WIDTH_ENGLISH
+  },
+  optimizer: {
+    enabled: LAYOUT_OPTIMIZER_ENABLED,
+    minNodeDistance: LAYOUT_MIN_NODE_DISTANCE,
+    boundaryPadding: LAYOUT_NODE_BOUNDARY_PADDING,
+    maxIterations: LAYOUT_MAX_ITERATIONS
   }
 };

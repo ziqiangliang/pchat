@@ -15,6 +15,7 @@ import {
   NODE_CHAR_WIDTH_ENGLISH,
   DEFAULT_NODE_RADIUS
 } from '../config';
+import { layoutOptimizer } from '../engines/layoutOptimizer';
 
 // 判断是否为中文字符
 function isChineseChar(char: string): boolean {
@@ -112,16 +113,14 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       return posMap;
     }
 
-    allNodes.forEach(node => {
-      // 防御性检查：节点必须有 id
-      if (!node || !node.id) return;
+    if (allNodes.length === 0) {
+      return posMap;
+    }
 
-      // 优先使用 x, y 坐标
-      if (node.x !== undefined && node.y !== undefined) {
-        posMap.set(node.id, { x: node.x, y: node.y });
-      } else if (node.pos) {
-        posMap.set(node.id, { x: node.pos.x, y: node.pos.y });
-      }
+    const optimizedPositions = layoutOptimizer.optimize(allNodes, edges);
+    
+    optimizedPositions.forEach((pos, id) => {
+      posMap.set(id, pos);
     });
 
     // 处理标注节点
@@ -151,7 +150,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       });
 
     return posMap;
-  }, [nodes]);
+  }, [nodes, edges]);
 
   const renderNode = (node: Node, pos: Position, isVisible: boolean) => {
     // 防御性检查
