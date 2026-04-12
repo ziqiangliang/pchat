@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { useStore } from './stores/store';
-import { DSL, Step, ChatMessage, Node, Edge } from './types';
+import { DSL, Step, ChatMessage } from './types';
 import { GraphCanvas } from './components/GraphCanvas';
 import { ChatInterface } from './components/ChatInterface';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DraggablePlaybackControls } from './components/DraggablePlaybackControls';
-import { SmartChatInterface } from './components/SmartChatInterface';
+import { SmartChatV2Interface } from './components/SmartChatV2Interface';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
@@ -31,13 +31,9 @@ function App() {
   const setDsl = useStore(state => state.setDsl);
   const currentStep = useStore(state => state.currentStep);
   const nodes = useStore(state => state.nodes);
-  const setNodes = useStore(state => state.setNodes);
   const edges = useStore(state => state.edges);
-  const setEdges = useStore(state => state.setEdges);
   const visibleNodeIds = useStore(state => state.visibleNodeIds);
-  const setVisibleNodeIds = useStore(state => state.setVisibleNodeIds);
   const visibleEdgeIds = useStore(state => state.visibleEdgeIds);
-  const setVisibleEdgeIds = useStore(state => state.setVisibleEdgeIds);
   const highlightedNodes = useStore(state => state.highlightedNodes);
   const highlightedEdges = useStore(state => state.highlightedEdges);
   const nodeAnimations = useStore(state => state.nodeAnimations);
@@ -302,20 +298,6 @@ function App() {
 
 
   // 智能绘图模式的状态同步
-  const handleSmartNodesUpdate = useCallback((smartNodes: Map<string, Node>) => {
-    setNodes(smartNodes);
-    const newVisibleIds = new Set(Array.from(smartNodes.keys()));
-    setVisibleNodeIds(newVisibleIds);
-  }, [setNodes, setVisibleNodeIds]);
-
-  const handleSmartEdgesUpdate = useCallback((smartEdges: Edge[]) => {
-    setEdges(smartEdges);
-    const newVisibleEdgeIds = new Set(
-      smartEdges.map(edge => `${edge.from}-${edge.to}`)
-    );
-    setVisibleEdgeIds(newVisibleEdgeIds);
-  }, [setEdges, setVisibleEdgeIds]);
-
   const handleSmartDrawingComplete = useCallback(() => {
     console.log('Smart drawing completed');
   }, []);
@@ -405,11 +387,26 @@ function App() {
         </div>
 
         {isSmartMode ? (
-          <SmartChatInterface
-            onNodesUpdate={handleSmartNodesUpdate}
-            onEdgesUpdate={handleSmartEdgesUpdate}
-            onDrawingComplete={handleSmartDrawingComplete}
-          />
+          <>
+            <div className="mode-tabs">
+              <button
+                onClick={() => setIsSmartMode(!isSmartMode)}
+                className={!isSmartMode ? 'active' : ''}
+                title="切换到标准模式"
+              >
+                标准模式
+              </button>
+              <button
+                className={isSmartMode ? 'active' : ''}
+                title="新版手绘风格"
+              >
+                手绘模式 (V2)
+              </button>
+            </div>
+            <SmartChatV2Interface
+              onComplete={handleSmartDrawingComplete}
+            />
+          </>
         ) : (
           <ChatInterface
             chatHistory={chatHistory}

@@ -17,11 +17,6 @@ export type TTSState = {
 };
 
 const TTS_TIMEOUT = 30000;
-const TTS_FALLBACK_DELAY = 2000;
-
-function isMobileDevice(): boolean {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
 
 function isProblematicBrowser(): boolean {
   const ua = navigator.userAgent.toLowerCase();
