@@ -1,13 +1,33 @@
 {
   "name": "pchat",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A graphical ChatGPT that explains concepts while drawing dynamic visualizations on a virtual canvas",
+  "author": "PChat Team",
+  "license": "MIT",
+  "homepage": "https://github.com/pchat/pchat#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pchat/pchat.git"
+  },
+  "keywords": [
+    "chatgpt",
+    "visualization",
+    "ai",
+    "canvas",
+    "education",
+    "diagram",
+    "flowchart",
+    "animation",
+    "react",
+    "typescript"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "i18next": "^26.0.4",

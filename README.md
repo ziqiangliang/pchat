@@ -2,11 +2,14 @@
 
 A **graphical ChatGPT** that explains concepts while drawing dynamic visualizations on a virtual canvas. Ask any question and get an answer with real-time graphics, animations, and step-by-step demonstrations.
 
-## Demo
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.x-61dafb)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.x-646cff)](https://vitejs.dev/)
 
-[![Demo Video](https://img.shields.io/badge/Demo-Bilibili-red?style=flat-square)](https://www.bilibili.com/video/BV1ofQtBTEfx/)
+[English](./README.md) | [中文](./README_zh.md)
 
-## Features
+## ✨ Features
 
 - **Universal Domain Support** - Ask questions from any field (math, physics, history, programming, etc.)
 - **Visual Explanations** - AI draws diagrams, charts, flowcharts, and geometric shapes while explaining
@@ -16,7 +19,55 @@ A **graphical ChatGPT** that explains concepts while drawing dynamic visualizati
 - **Multi-turn Conversations** - Continue asking follow-up questions with canvas state preservation
 - **Playback Controls** - Step-by-step playback with play, pause, forward, and backward controls
 
-## Architecture
+## 🎬 Demo
+
+[![Demo Video](https://img.shields.io/badge/Demo-Bilibili-red?style=flat-square)](https://www.bilibili.com/video/BV1ofQtBTEfx/)
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- OpenAI API Key or compatible API (DeepSeek, etc.)
+
+### Installation
+
+```bash
+git clone https://github.com/pchat/pchat.git
+cd pchat
+npm install
+```
+
+### Configuration
+
+Create a `.env` file based on `.env.example`:
+
+**Using OpenAI:**
+```env
+VITE_OPENAI_API_KEY=your_api_key_here
+VITE_OPENAI_API_ENDPOINT=https://api.openai.com/v1/chat/completions
+```
+
+**Using DeepSeek:**
+```env
+VITE_DEEPSEEK_API_KEY=your_api_key_here
+VITE_DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -34,7 +85,7 @@ A **graphical ChatGPT** that explains concepts while drawing dynamic visualizati
 └─────────────────────┬───────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────┐
-│                   OpenAI API (GPT-4o)                   │
+│                   OpenAI API (GPT-4o)                    │
 └─────────────────────┬───────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────┐
@@ -52,7 +103,53 @@ A **graphical ChatGPT** that explains concepts while drawing dynamic visualizati
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Tech Stack
+## 📁 Project Structure
+
+```
+src/
+├── components/           # React components
+│   ├── ChatInterface.tsx          # Main chat interface
+│   ├── DraggablePlaybackControls.tsx # Draggable playback controls
+│   ├── GraphCanvas.tsx             # SVG canvas renderer
+│   ├── PlaybackControls.tsx       # Animation playback controls
+│   └── SmartChatInterface.tsx     # AI chat interface
+├── config/               # Configuration constants
+│   ├── config.ts                    # App configuration
+│   ├── prompts.ts                   # AI prompts
+│   └── index.ts
+├── engines/              # Core engines
+│   ├── SmartChatEngine.ts           # AI conversation engine
+│   ├── annotationEngine.ts          # Annotation positioning
+│   ├── layoutOptimizer.ts           # Layout optimization
+│   ├── layoutSolver.ts              # Layout algorithms
+│   ├── renderEngine.ts              # Rendering logic
+│   └── stepPlayer.ts                # Animation step player
+├── hooks/                # Custom React hooks
+│   ├── useCanvasGesture.ts          # Canvas gesture handling
+│   ├── useGraphControls.ts          # Graph control hooks
+│   └── useSmartChat.ts              # Smart chat hooks
+├── i18n/                 # Internationalization
+│   ├── locales/
+│   │   ├── en.json                  # English translations
+│   │   └── zh.json                  # Chinese translations
+│   └── index.ts
+├── services/             # External services
+│   └── ttsService.ts                 # Text-to-speech service
+├── stores/               # State management (Zustand)
+│   ├── blackboardState.ts            # Canvas state
+│   ├── smartChatStore.ts              # Chat session state
+│   └── store.ts
+├── types/                # TypeScript type definitions
+│   └── index.ts
+├── utils/                # Utility functions
+│   ├── instructionTransformer.ts     # Instruction transformation
+│   └── jsonParser.ts                 # JSON parsing utilities
+├── App.tsx               # Root component
+├── index.css             # Global styles
+└── main.tsx              # Entry point
+```
+
+## 🛠️ Tech Stack
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
@@ -60,8 +157,9 @@ A **graphical ChatGPT** that explains concepts while drawing dynamic visualizati
 | TypeScript | 5.x | Type Safety |
 | Zustand | 4.x | State Management |
 | Vite | 5.x | Build Tool |
+| i18next | 26.x | Internationalization |
 
-## Layout Engine
+## 🔧 Layout Engine
 
 The `LayoutSolver` supports multiple layout types:
 
@@ -70,63 +168,7 @@ The `LayoutSolver` supports multiple layout types:
 - **Network Layout** - Radial network diagrams with root node offset
 - **Data Layout** - Bar charts for data visualization
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- OpenAI API Key
-
-### Installation
-
-```bash
-npm install
-```
-
-### Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```env
-VITE_OPENAI_API_KEY=your_api_key_here
-VITE_OPENAI_API_ENDPOINT=https://api.openai.com/v1/chat/completions
-```
-
-### Development
-
-```bash
-npm run dev
-```
-
-### Build
-
-```bash
-npm run build
-```
-
-## Project Structure
-
-```
-src/
-├── components/           # React components
-│   ├── GraphCanvas.tsx          # SVG canvas renderer
-│   ├── SmartChatInterface.tsx  # AI chat interface
-│   └── PlaybackControls.tsx    # Animation playback controls
-├── engines/              # Core engines
-│   ├── SmartChatEngine.ts      # AI conversation engine
-│   ├── layoutSolver.ts         # Layout algorithms
-│   ├── renderEngine.ts         # Rendering logic
-│   └── annotationEngine.ts    # Annotation positioning
-├── stores/               # State management
-│   ├── blackboardState.ts      # Canvas state (areas, elements)
-│   └── smartChatStore.ts        # Chat session state
-├── hooks/                # Custom React hooks
-├── config/               # Configuration constants
-├── types/                # TypeScript definitions
-└── utils/                # Utility functions
-```
-
-## Key Concepts
+## 📖 Key Concepts
 
 ### Blackboard State
 
@@ -154,6 +196,12 @@ Supports multiple animation types:
 - `scale` - Size transformations
 - `draw` - Line drawing effects
 
-## License
+## 📄 License
 
-Private project.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [OpenAI](https://openai.com/) for GPT-4o API
+- [DeepSeek](https://deepseek.com/) for compatible API
+- All contributors and users of this project

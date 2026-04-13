@@ -15,6 +15,7 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -29,3 +30,12 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Build outputs
+*.tsbuildinfo
+
+# Test coverage
+coverage
+
+# OS files
+Thumbs.db
