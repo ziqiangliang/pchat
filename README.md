@@ -4,7 +4,7 @@ A **graphical ChatGPT** that explains concepts while drawing dynamic visualizati
 
 ## Demo
 
-https://github.com/ziqiangliang/pchat/assets/zh-demo.mp4
+[![Demo Video](https://img.shields.io/badge/Demo-Bilibili-red?style=flat-square)](https://www.bilibili.com/video/BV1ofQtBTEfx/)
 
 ## Features
 
