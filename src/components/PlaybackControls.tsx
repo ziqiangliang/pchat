@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../stores/store';
 import { ttsService } from '../services/ttsService';
 
@@ -19,6 +20,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onNextStep,
   currentText = ''
 }) => {
+  const { t } = useTranslation();
   const { isPaused, setIsPaused, playbackSpeed, setPlaybackSpeed } = useStore();
   const { ttsEnabled, setTtsEnabled, ttsState, setTtsState, ttsAutoPlay, setTtsAutoPlay } = useStore();
   const [showTtsSettings, setShowTtsSettings] = useState(false);
@@ -27,7 +29,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     ttsService.setStateChangeCallback((state) => {
       setTtsState(state);
     });
-  }, [setTtsState]);
+
+    ttsService.setTTSErrorCallback(() => {
+      setTtsEnabled(false);
+    });
+  }, [setTtsState, setTtsEnabled]);
 
   useEffect(() => {
     if (isPaused) {
@@ -104,7 +110,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           <button
             className="playback-btn playback-btn--pause"
             onClick={() => setIsPaused(!isPaused)}
-            title={isPaused ? '继续播放' : '暂停播放'}
+            title={isPaused ? t('playback.resume') : t('playback.pause')}
           >
             {isPaused ? '▶' : '⏸'}
           </button>
@@ -113,7 +119,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className="playback-btn"
             onClick={onPrevStep}
             disabled={currentStep <= 0}
-            title="上一步"
+            title={t('playback.prevStep')}
           >
             ⏮
           </button>
@@ -122,7 +128,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className="playback-btn"
             onClick={onNextStep}
             disabled={currentStep >= totalSteps - 1}
-            title="下一步"
+            title={t('playback.nextStep')}
           >
             ⏭
           </button>
@@ -131,7 +137,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             className="playback-speed"
             value={playbackSpeed}
             onChange={handleSpeedChange}
-            title="播放速度"
+            title={t('playback.speed')}
           >
             <option value="0.5">0.5x</option>
             <option value="1">1x</option>
@@ -144,7 +150,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           <button
             className={`playback-btn playback-btn--tts ${ttsEnabled ? 'active' : ''}`}
             onClick={handleTtsToggle}
-            title={ttsEnabled ? '关闭语音' : '开启语音'}
+            title={ttsEnabled ? t('tts.disable') : t('tts.enable')}
           >
             🔊
           </button>
@@ -154,14 +160,14 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               <button
                 className="playback-btn"
                 onClick={handleTtsPauseResume}
-                title={ttsState.isPaused ? '继续语音' : '暂停语音'}
+                title={ttsState.isPaused ? t('tts.resumeVoice') : t('tts.pauseVoice')}
               >
                 {ttsState.isPaused ? '▶' : '⏸'}
               </button>
               <button
                 className="playback-btn"
                 onClick={handleTtsStop}
-                title="停止语音"
+                title={t('tts.stopVoice')}
               >
                 ⏹
               </button>
@@ -172,7 +178,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             <button
               className="playback-btn"
               onClick={() => setShowTtsSettings(!showTtsSettings)}
-              title="语音设置"
+              title={t('tts.settings')}
             >
               ⚙
             </button>
@@ -181,7 +187,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
         <div className="playback-controls__progress">
           <span className="playback-step-info">
-            Step {currentStep + 1} / {totalSteps}
+            {t('playback.stepInfo', { current: currentStep + 1, total: totalSteps })}
           </span>
           <div className="playback-slider-container">
             <input
@@ -202,7 +208,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         {showTtsSettings && ttsEnabled && (
           <div className="tts-settings">
             <div className="tts-settings__row">
-              <label className="tts-settings__label">语音</label>
+              <label className="tts-settings__label">{t('tts.voice')}</label>
               <select
                 className="tts-settings__select"
                 value={ttsState.selectedVoice?.voiceURI || ''}
@@ -219,7 +225,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             </div>
 
             <div className="tts-settings__row">
-              <label className="tts-settings__label">语速</label>
+              <label className="tts-settings__label">{t('tts.rate')}</label>
               <input
                 type="range"
                 min="0.5"
@@ -233,12 +239,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             </div>
 
             <div className="tts-settings__row">
-              <label className="tts-settings__label">自动播报</label>
+              <label className="tts-settings__label">{t('tts.autoPlay')}</label>
               <button
                 className={`tts-settings__toggle ${ttsAutoPlay ? 'active' : ''}`}
                 onClick={() => setTtsAutoPlay(!ttsAutoPlay)}
               >
-                {ttsAutoPlay ? '开启' : '关闭'}
+                {ttsAutoPlay ? t('tts.on') : t('tts.off')}
               </button>
             </div>
           </div>

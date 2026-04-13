@@ -1,0 +1,76 @@
+{
+  "app": {
+    "title": "PChat - Smart Graphic Explanation Assistant",
+    "logoIcon": "P"
+  },
+  "controls": {
+    "send": "Send",
+    "clear": "Clear",
+    "replay": "Replay",
+    "smartMode": "Smart Mode",
+    "standardMode": "Standard Mode",
+    "pasteJson": "Paste JSON",
+    "closePanel": "Close Panel",
+    "darkMode": "Dark Mode"
+  },
+  "playback": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "prevStep": "Previous Step",
+    "nextStep": "Next Step",
+    "stepInfo": "Step {{current}} / {{total}}",
+    "speed": "Speed"
+  },
+  "tts": {
+    "enable": "Enable Voice",
+    "disable": "Disable Voice",
+    "pauseVoice": "Pause Voice",
+    "resumeVoice": "Resume Voice",
+    "stopVoice": "Stop Voice",
+    "settings": "Voice Settings",
+    "voice": "Voice",
+    "rate": "Speed",
+    "autoPlay": "Auto Play",
+    "on": "On",
+    "off": "Off",
+    "notSupported": "TTS not supported in this browser"
+  },
+  "chat": {
+    "placeholder": "Enter your question or paste JSON...",
+    "sending": "Sending...",
+    "loading": "Thinking...",
+    "error": "Sorry, an error occurred. Please try again later.",
+    "copy": "Copy message",
+    "copySuccess": "Copied!",
+    "copyFailed": "Copy failed",
+    "duration": "Duration",
+    "apiKeyRequired": "Please set VITE_DEEPSEEK_API_KEY environment variable"
+  },
+  "smartChat": {
+    "title": "🖌️ Smart Drawing",
+    "stop": "⏹️ Stop",
+    "complete": "Complete",
+    "reset": "🔄 Reset",
+    "start": "🚀 Start Drawing",
+    "starting": "Starting...",
+    "stopped": "Stopped",
+    "drawing": "🎨 Drawing...",
+    "paused": "⏸️ Paused",
+    "stepInfo": "Step {{current}}/{{total}}",
+    "placeholder": "Enter content to explain, e.g., 'Explain TCP three-way handshake'",
+    "currentExplanation": "📝 Current Explanation",
+    "history": "📜 Drawing History",
+    "area": "Area",
+    "node": "Node",
+    "connection": "Connection"
+  },
+  "graph": {
+    "noData": "No graph data"
+  },
+  "jsonPanel": {
+    "title": "Paste JSON Code",
+    "placeholder": "Paste JSON code here...",
+    "cancel": "Cancel",
+    "render": "Render JSON"
+  }
+}

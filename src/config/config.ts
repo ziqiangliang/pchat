@@ -103,7 +103,7 @@ export const NODE_HIGHLIGHT_STROKE_WIDTH = 3;
 export const EDGE_HIGHLIGHT_STROKE_WIDTH = 3;
 
 // ==================== 布局优化器配置 ====================
-export const LAYOUT_OPTIMIZER_ENABLED = true;
+export const LAYOUT_OPTIMIZER_ENABLED = false;
 export const LAYOUT_MIN_NODE_DISTANCE = 60;
 export const LAYOUT_NODE_BOUNDARY_PADDING = 30;
 export const LAYOUT_MAX_ITERATIONS = 30;

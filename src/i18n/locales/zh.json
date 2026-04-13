@@ -1,0 +1,76 @@
+{
+  "app": {
+    "title": "PChat - 智能图形化讲解助手",
+    "logoIcon": "P"
+  },
+  "controls": {
+    "send": "发送",
+    "clear": "清空",
+    "replay": "重播",
+    "smartMode": "智能绘图",
+    "standardMode": "标准模式",
+    "pasteJson": "粘贴JSON",
+    "closePanel": "关闭后门",
+    "darkMode": "深色模式"
+  },
+  "playback": {
+    "pause": "暂停",
+    "resume": "继续",
+    "prevStep": "上一步",
+    "nextStep": "下一步",
+    "stepInfo": "步骤 {{current}} / {{total}}",
+    "speed": "速度"
+  },
+  "tts": {
+    "enable": "开启语音",
+    "disable": "关闭语音",
+    "pauseVoice": "暂停语音",
+    "resumeVoice": "继续语音",
+    "stopVoice": "停止语音",
+    "settings": "语音设置",
+    "voice": "语音",
+    "rate": "语速",
+    "autoPlay": "自动播报",
+    "on": "开启",
+    "off": "关闭",
+    "notSupported": "当前浏览器不支持语音合成"
+  },
+  "chat": {
+    "placeholder": "输入你的问题或粘贴 JSON...",
+    "sending": "发送中...",
+    "loading": "思考中...",
+    "error": "抱歉，发生了错误。请稍后再试。",
+    "copy": "复制消息",
+    "copySuccess": "复制成功！",
+    "copyFailed": "复制失败",
+    "duration": "耗时",
+    "apiKeyRequired": "请设置 VITE_DEEPSEEK_API_KEY 环境变量"
+  },
+  "smartChat": {
+    "title": "🖌️ 智能绘图",
+    "stop": "⏹️ 停止",
+    "complete": "绘制完成！",
+    "reset": "🔄 重置",
+    "start": "🚀 开始绘制",
+    "starting": "正在开始绘制...",
+    "stopped": "已停止绘制",
+    "drawing": "🎨 绘制中...",
+    "paused": "⏸️ 已暂停",
+    "stepInfo": "步骤 {{current}}/{{total}}",
+    "placeholder": "输入你想要讲解的内容，例如：'讲解TCP三次握手'",
+    "currentExplanation": "📝 当前讲解",
+    "history": "📜 绘制历史",
+    "area": "区域",
+    "node": "节点",
+    "connection": "连接"
+  },
+  "graph": {
+    "noData": "暂无图形数据"
+  },
+  "jsonPanel": {
+    "title": "粘贴JSON代码",
+    "placeholder": "在此粘贴JSON代码...",
+    "cancel": "取消",
+    "render": "渲染JSON"
+  }
+}

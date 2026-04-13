@@ -2,6 +2,10 @@
 
 A **graphical ChatGPT** that explains concepts while drawing dynamic visualizations on a virtual canvas. Ask any question and get an answer with real-time graphics, animations, and step-by-step demonstrations.
 
+## Demo
+
+https://github.com/ziqiangliang/pchat/assets/zh-demo.mp4
+
 ## Features
 
 - **Universal Domain Support** - Ask questions from any field (math, physics, history, programming, etc.)

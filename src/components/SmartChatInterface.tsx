@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSmartChat } from '../hooks/useSmartChat';
 import { Node, Edge } from '../types';
 
@@ -13,9 +14,10 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
   onEdgesUpdate,
   onDrawingComplete
 }) => {
+  const { t } = useTranslation();
   const [question, setQuestion] = useState('');
   const [currentExplanation, setCurrentExplanation] = useState('');
-  
+
   const {
     isActive,
     isStreaming,
@@ -47,7 +49,7 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
         console.log('Step complete:', step);
       },
       onComplete: () => {
-        setCurrentExplanation('绘制完成！');
+        setCurrentExplanation(t('smartChat.complete'));
         onDrawingComplete?.();
       }
     }
@@ -70,13 +72,13 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
       return;
     }
 
-    setCurrentExplanation('正在开始绘制...');
+    setCurrentExplanation(t('smartChat.starting'));
     await startDrawing(question);
   };
 
   const handleStopDrawing = () => {
     stopDrawing();
-    setCurrentExplanation('已停止绘制');
+    setCurrentExplanation(t('smartChat.stopped'));
   };
 
   const handleResetDrawing = () => {
@@ -88,12 +90,12 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
   return (
     <div className="smart-chat-interface">
       <div className="smart-chat-header">
-        <h3>🖌️ 智能边讲边画</h3>
+        <h3>{t('smartChat.title')}</h3>
         {isActive && (
           <div className="status-badge">
-            {isStreaming ? '🎨 绘制中...' : '⏸️ 已暂停'}
-            <span className="step-counter">
-              步骤 {currentStep}/{totalSteps}
+            {isStreaming ? t('smartChat.drawing') : t('smartChat.paused')}
+            <span className="step_counter">
+              {t('smartChat.stepInfo', { current: currentStep, total: totalSteps })}
             </span>
           </div>
         )}
@@ -103,12 +105,12 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
         <textarea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="输入你想要讲解的内容，例如：'讲解TCP三次握手'"
+          placeholder={t('smartChat.placeholder')}
           disabled={isActive}
           rows={3}
           className="question-input"
         />
-        
+
         <div className="action-buttons">
           {!isActive ? (
             <button
@@ -116,7 +118,7 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
               disabled={!question.trim()}
               className="start-button"
             >
-              🚀 开始绘制
+              {t('smartChat.start')}
             </button>
           ) : (
             <>
@@ -124,13 +126,13 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
                 onClick={handleStopDrawing}
                 className="stop-button"
               >
-                ⏹️ 停止
+                {t('smartChat.stop')}
               </button>
               <button
                 onClick={handleResetDrawing}
                 className="reset-button"
               >
-                🔄 重置
+                {t('smartChat.reset')}
               </button>
             </>
           )}
@@ -140,7 +142,7 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
       {currentExplanation && (
         <div className="explanation-display">
           <div className="explanation-header">
-            📝 当前讲解
+            {t('smartChat.currentExplanation')}
           </div>
           <div className="explanation-text">
             {currentExplanation}
@@ -151,7 +153,7 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
       {drawingSteps.length > 0 && (
         <div className="steps-history">
           <div className="history-header">
-            📜 绘制历史
+            {t('smartChat.history')}
           </div>
           <div className="steps-list">
             {drawingSteps.map((step, index) => (
@@ -162,9 +164,9 @@ export const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
                     {step.explainText}
                   </div>
                   <div className="step-meta">
-                    区域: {step.targetArea}
-                    {step.node && ` | 节点: ${step.node.label}`}
-                    {step.edge && ` | 连接: ${step.edge.from} → ${step.edge.to}`}
+                    {t('smartChat.area')}: {step.targetArea}
+                    {step.node && ` | ${t('smartChat.node')}: ${step.node.label}`}
+                    {step.edge && ` | ${t('smartChat.connection')}: ${step.edge.from} → ${step.edge.to}`}
                   </div>
                 </div>
               </div>
