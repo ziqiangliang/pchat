@@ -90,23 +90,19 @@ export class SmartChatEngine {
 
     while (stepCount < maxSteps) {
       if (this.abortController?.signal.aborted) {
-        console.log('[SmartChatEngine] Drawing loop aborted');
         break;
       }
 
       const prompt = createFullPrompt(userQuestion, blackboardState);
-      console.log('[SmartChatEngine] Step', stepCount + 1, '- Prompt:', prompt.user);
-      
+
       const store = useSmartChatStore.getState();
       store.setStreaming(true);
 
       try {
         const response = await this.callLLM(prompt);
-        console.log('[SmartChatEngine] LLM Response:', response);
-        
+
         const llmOutput = parseLLMOutput(response);
-        console.log('[SmartChatEngine] Parsed LLM Output:', llmOutput);
-        
+
         if (!llmOutput) {
           console.warn('[SmartChatEngine] Failed to parse LLM output, stopping');
           break;
@@ -116,25 +112,19 @@ export class SmartChatEngine {
 
         const nodeId = `node:${Date.now()}:${nodeCounter.value}:${stepCount}`;
         nodeCounter.value++;
-        
+
         let node: Node | undefined;
         let edge: Edge | undefined;
 
         if (llmOutput.drawLogic.action === 'arrow') {
-          console.log('[SmartChatEngine] Processing arrow connection');
           const fromLabel = llmOutput.drawLogic.from;
           const toLabel = llmOutput.drawLogic.to;
-          console.log('[SmartChatEngine] Looking for from:', fromLabel, 'to:', toLabel);
-          
+
           const currentStore = useSmartChatStore.getState();
           const allNodes = Array.from(currentStore.sessionNodes.values());
-          console.log('[SmartChatEngine] Available nodes for matching:', allNodes.map(n => ({id: n.id, label: n.label})));
-          
+
           const fromNode = allNodes.find(n => n.label === fromLabel);
           const toNode = allNodes.find(n => n.label === toLabel);
-
-          console.log('[SmartChatEngine] Found fromNode:', fromNode?.id, 'toNode:', toNode?.id);
-          console.log('[SmartChatEngine] Current sessionEdges before add:', currentStore.sessionEdges.length);
 
           if (fromNode && toNode) {
             edge = createEdgeFromDrawLogic(
@@ -143,10 +133,7 @@ export class SmartChatEngine {
               llmOutput.drawLogic.label
             );
 
-            console.log('[SmartChatEngine] Adding edge:', edge);
             store.addEdge(edge);
-            const updatedStore = useSmartChatStore.getState();
-            console.log('[SmartChatEngine] sessionEdges after add:', updatedStore.sessionEdges.length);
             this.callbacks.onEdgeAdded?.(edge);
           } else {
             console.warn('[SmartChatEngine] Could not find nodes for arrow connection');
@@ -204,7 +191,6 @@ export class SmartChatEngine {
 
         stepCount++;
         store.setCurrentDrawingStep(stepCount);
-        console.log('[SmartChatEngine] Completed step', stepCount, '- Total steps:', store.drawingSteps.length);
 
         await this.delay(500);
 
@@ -218,7 +204,6 @@ export class SmartChatEngine {
         store.setStreaming(false);
       }
     }
-    console.log('[SmartChatEngine] Drawing loop finished. Total steps:', stepCount);
   }
 
   private async callLLM(

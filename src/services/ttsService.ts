@@ -17,16 +17,11 @@ export type TTSState = {
 };
 
 const TTS_TIMEOUT = 30000;
-const TTS_FALLBACK_DELAY = 2000;
-
-function isMobileDevice(): boolean {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
 
 function isProblematicBrowser(): boolean {
   const ua = navigator.userAgent.toLowerCase();
-  return ua.includes('huawei') || 
-         ua.includes('honor') || 
+  return ua.includes('huawei') ||
+         ua.includes('honor') ||
          ua.includes('harmony') ||
          (ua.includes('android') && ua.includes('micromessenger'));
 }
@@ -49,6 +44,7 @@ class TTSService {
   private onStateChange: ((state: TTSState) => void) | null = null;
   private onSpeakStart: (() => void) | null = null;
   private onSpeakEnd: (() => void) | null = null;
+  private onTTSError: (() => void) | null = null;
   private speakTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastSpokenText: string = '';
   private fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -56,11 +52,11 @@ class TTSService {
   constructor() {
     this.supported = 'speechSynthesis' in window && !isProblematicBrowser();
     this.state.isSupported = this.supported;
-    
+
     if (this.supported) {
       this.synthesis = window.speechSynthesis;
       this.loadVoices();
-      
+
       if (this.synthesis!.onvoiceschanged !== undefined) {
         this.synthesis!.onvoiceschanged = () => this.loadVoices();
       }
@@ -69,7 +65,7 @@ class TTSService {
 
   private loadVoices() {
     if (!this.synthesis) return;
-    
+
     const voices = this.synthesis.getVoices();
     const ttsVoices: TTSVoice[] = voices.map(voice => ({
       name: voice.name,
@@ -101,6 +97,10 @@ class TTSService {
 
   setSpeakEndCallback(callback: () => void) {
     this.onSpeakEnd = callback;
+  }
+
+  setTTSErrorCallback(callback: () => void) {
+    this.onTTSError = callback;
   }
 
   private notifyStateChange() {
@@ -217,12 +217,16 @@ class TTSService {
         if (event.error === 'interrupted' || event.error === 'canceled') {
           return;
         }
-        
+
         console.warn('TTS Error:', event.error);
         this.state.isSpeaking = false;
         this.state.isPaused = false;
         this.notifyStateChange();
-        
+
+        if (this.onTTSError) {
+          this.onTTSError();
+        }
+
         if (this.onSpeakEnd) {
           this.onSpeakEnd();
         }

@@ -87,8 +87,6 @@ export const useSmartChatStore = create<SmartChatState & {
   }),
 
   addEdge: (edge) => set((state) => {
-    console.log('[smartChatStore] addEdge called, current edges:', state.sessionEdges.length);
-    console.log('[smartChatStore] adding edge:', edge);
     return {
       sessionEdges: [...state.sessionEdges, edge]
     };

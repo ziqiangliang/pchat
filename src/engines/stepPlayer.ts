@@ -50,6 +50,10 @@ class StepPlayer {
     ttsService.setSpeakEndCallback(() => {
       this.handleTTSEnd();
     });
+
+    ttsService.setTTSErrorCallback(() => {
+      useStore.getState().setTtsEnabled(false);
+    });
   }
 
   private handleTTSEnd() {
