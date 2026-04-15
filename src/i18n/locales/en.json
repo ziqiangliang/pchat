@@ -33,7 +33,10 @@
     "autoPlay": "Auto Play",
     "on": "On",
     "off": "Off",
-    "notSupported": "TTS not supported in this browser"
+    "notSupported": "TTS not supported in this browser",
+    "provider": "TTS Provider",
+    "native": "Browser Native",
+    "aliyun": "Aliyun"
   },
   "chat": {
     "placeholder": "Enter your question or paste JSON...",
