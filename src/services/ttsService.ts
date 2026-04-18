@@ -316,6 +316,14 @@ class TTSService {
       this.utterance.onerror = (event) => {
         this.clearKickAndOnstartTimers();
         if (event.error === 'interrupted' || event.error === 'canceled') {
+          this.state.isSpeaking = false;
+          this.state.isPaused = false;
+          this.state.currentText = '';
+          this.notifyStateChange();
+
+          if (this.onSpeakEnd) {
+            this.onSpeakEnd();
+          }
           return;
         }
 

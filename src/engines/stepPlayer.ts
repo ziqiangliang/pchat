@@ -23,8 +23,10 @@ class StepPlayer {
   private config: StepPlayerConfig;
   private isInitialized: boolean = false;
   private animationTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private nonTtsTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private sessionId: number = 0;
   private lastPlaySessionId: number = 0;
+  private expectedNextStepIndex: number = -1;
 
   constructor(config: StepPlayerConfig) {
     this.config = config;
@@ -72,7 +74,42 @@ class StepPlayer {
       this.animationTimeoutId = null;
     }
 
+    if (this.nonTtsTimeoutId) {
+      clearTimeout(this.nonTtsTimeoutId);
+      this.nonTtsTimeoutId = null;
+    }
+
     const currentSessionId = this.sessionId;
+    const { ttsEnabled, ttsAutoPlay } = useStore.getState();
+    
+    if (!ttsEnabled || !ttsAutoPlay) {
+      const currentStepIndex = state.currentStep;
+      const dsl = state.dsl;
+      
+      if (dsl && dsl.steps && currentStepIndex >= 0 && currentStepIndex < dsl.steps.length) {
+        const currentStep = dsl.steps[currentStepIndex];
+        const text = currentStep.text || '';
+        
+        const typingDuration = text.length > 0
+          ? TYPING_BASE_DELAY + text.length * TYPING_PER_CHAR_DELAY
+          : 0;
+        const totalDuration = Math.max(typingDuration, STEP_BASE_INTERVAL) + STEP_MIN_DURATION;
+        
+        setTimeout(() => {
+          if (this.isCurrentSession(currentSessionId) && useStore.getState().isAutoPlaying && !useStore.getState().isPaused) {
+            this.playNextInQueue();
+          }
+        }, totalDuration);
+      } else {
+        setTimeout(() => {
+          if (this.isCurrentSession(currentSessionId)) {
+            this.playNextInQueue();
+          }
+        }, STEP_MIN_DURATION);
+      }
+      return;
+    }
+
     setTimeout(() => {
       if (this.isCurrentSession(currentSessionId)) {
         this.playNextInQueue();
@@ -84,6 +121,11 @@ class StepPlayer {
     const state = useStore.getState();
     
     if (!state.isAutoPlaying || !state.playMode) {
+      return;
+    }
+
+    const expectedIndex = this.expectedNextStepIndex;
+    if (expectedIndex >= 0 && state.playedStepCount !== expectedIndex) {
       return;
     }
 
@@ -118,11 +160,17 @@ class StepPlayer {
 
     useStore.getState().setCurrentStep(stepIndex);
     useStore.getState().incrementPlayedStepCount();
+    this.expectedNextStepIndex = stepIndex + 1;
 
     const text = step.text || '';
     const { ttsEnabled, ttsAutoPlay } = useStore.getState();
 
     if (ttsEnabled && ttsAutoPlay) {
+      if (this.nonTtsTimeoutId) {
+        clearTimeout(this.nonTtsTimeoutId);
+        this.nonTtsTimeoutId = null;
+      }
+
       useStore.getState().setDisplayText(text);
       ttsService.speak(text);
 
@@ -132,6 +180,11 @@ class StepPlayer {
         }
       }, TTS_ANIMATION_DELAY);
     } else {
+      if (this.animationTimeoutId) {
+        clearTimeout(this.animationTimeoutId);
+        this.animationTimeoutId = null;
+      }
+
       this.config.startTyping(text);
       this.config.executeStep(step, stepIndex);
 
@@ -139,11 +192,13 @@ class StepPlayer {
         ? TYPING_BASE_DELAY + text.length * TYPING_PER_CHAR_DELAY
         : 0;
 
-      setTimeout(() => {
+      const totalDuration = Math.max(typingDuration, STEP_BASE_INTERVAL) + STEP_MIN_DURATION;
+
+      this.nonTtsTimeoutId = setTimeout(() => {
         if (this.isCurrentSession(currentSessionId) && useStore.getState().isAutoPlaying && !useStore.getState().isPaused) {
           this.playNextInQueue();
         }
-      }, Math.max(typingDuration, STEP_BASE_INTERVAL));
+      }, totalDuration);
     }
 
     this.config.onStepComplete?.(stepIndex);
@@ -213,6 +268,11 @@ class StepPlayer {
     if (this.animationTimeoutId) {
       clearTimeout(this.animationTimeoutId);
       this.animationTimeoutId = null;
+    }
+
+    if (this.nonTtsTimeoutId) {
+      clearTimeout(this.nonTtsTimeoutId);
+      this.nonTtsTimeoutId = null;
     }
 
     ttsService.stop();
