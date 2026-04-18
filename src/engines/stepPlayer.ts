@@ -247,6 +247,11 @@ class StepPlayer {
     const lastStep = state.dsl.steps[stepIndex];
     const text = lastStep.text || '';
     useStore.getState().setDisplayText(text);
+
+    const { ttsEnabled, ttsAutoPlay } = useStore.getState();
+    if (ttsEnabled && ttsAutoPlay && text) {
+      ttsService.speak(text);
+    }
   }
 
   nextStep() {
