@@ -82,6 +82,8 @@ interface GraphCanvasProps {
   timelineAnimations: Map<string, { progress: number }>;
   currentText: string;
   currentStep: number;
+  onPrevStep?: () => void;
+  onNextStep?: () => void;
 }
 
 const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
@@ -96,7 +98,9 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
   activeTimelineEvents,
   timelineAnimations,
   currentText,
-  currentStep
+  currentStep,
+  onPrevStep,
+  onNextStep
 }) => {
   const {
     viewport,
@@ -470,13 +474,31 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
 
       {hasSteps && (
         <div className="step-indicators">
-          {dsl.steps.map((step, index) => (
-            <div
-              key={index}
-              className={`step-dot ${index <= currentStep ? 'active' : ''}`}
-              title={step.text}
-            />
-          ))}
+          <button
+            className="step-nav-btn step-nav-btn--prev"
+            onClick={onPrevStep}
+            disabled={currentStep <= 0}
+            title="上一步"
+          >
+            ‹
+          </button>
+          <div className="step-dots">
+            {dsl.steps.map((step, index) => (
+              <div
+                key={index}
+                className={`step-dot ${index <= currentStep ? 'active' : ''}`}
+                title={step.text}
+              />
+            ))}
+          </div>
+          <button
+            className="step-nav-btn step-nav-btn--next"
+            onClick={onNextStep}
+            disabled={currentStep >= dsl.steps.length - 1}
+            title="下一步"
+          >
+            ›
+          </button>
         </div>
       )}
     </div>

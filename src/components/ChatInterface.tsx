@@ -77,11 +77,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="chat-header">
         <div className="chat-header-title">
           <div className="chat-header-icon">💬</div>
-          <span>对话</span>
+          <span>{t('chat.title')}</span>
         </div>
         <div className="chat-status">
           <div className="chat-status-dot"></div>
-          <span>在线</span>
+          <span>{t('chat.online')}</span>
         </div>
       </div>
 

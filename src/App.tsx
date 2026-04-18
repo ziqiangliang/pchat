@@ -9,6 +9,7 @@ import { PlaybackControls } from './components/PlaybackControls';
 import { DraggablePlaybackControls } from './components/DraggablePlaybackControls';
 import { MobileBallControl } from './components/MobileBallControl';
 import { ttsService } from './services/ttsService';
+import { ttsManager } from './services/ttsManager';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
@@ -47,8 +48,8 @@ function App() {
   const isDarkMode = useStore(state => state.isDarkMode);
   const isPaused = useStore(state => state.isPaused);
   const setIsPaused = useStore(state => state.setIsPaused);
-  const setPlaybackSpeed = useStore(state => state.setPlaybackSpeed);
-  const [volume, setVolume] = useState(1);
+  const ttsEnabled = useStore(state => state.ttsEnabled);
+  const setTtsEnabled = useStore(state => state.setTtsEnabled);
 
   const {
     handleClear,
@@ -68,10 +69,6 @@ function App() {
     stepPlayer.pause();
   }, [setIsPaused, stepPlayer]);
 
-  const handleSpeedChange = useCallback((speed: number) => {
-    setPlaybackSpeed(speed);
-  }, [setPlaybackSpeed]);
-
   const handleReplay = useCallback(() => {
     if (dsl) {
       resetGraphState();
@@ -80,9 +77,14 @@ function App() {
   }, [dsl, resetGraphState, stepPlayer]);
 
   const handleVolumeChange = useCallback((vol: number) => {
-    setVolume(vol);
     ttsService.setVolume(vol);
-  }, []);
+    if (vol === 0) {
+      ttsManager.stop();
+      setTtsEnabled(false);
+    } else {
+      setTtsEnabled(true);
+    }
+  }, [setTtsEnabled]);
 
   const handlePasteJson = useCallback(() => {
     if (!pastedJson.trim()) {
@@ -446,6 +448,8 @@ function App() {
               timelineAnimations={timelineAnimations}
               currentText={displayText}
               currentStep={currentStep}
+              onPrevStep={handlePrevStep}
+              onNextStep={handleNextStep}
             />
 
             {(dsl || isLoading) && dsl && dsl.steps && dsl.steps.length > 0 && (
@@ -465,11 +469,10 @@ function App() {
                   onPause={handlePause}
                   onPrev={handlePrevStep}
                   onNext={handleNextStep}
-                  onSpeedChange={handleSpeedChange}
                   onVolumeChange={handleVolumeChange}
                   onReplay={handleReplay}
                   isPlaying={!isPaused}
-                  volume={volume}
+                  volume={ttsEnabled ? 1 : 0}
                 />
               </>
             )}
