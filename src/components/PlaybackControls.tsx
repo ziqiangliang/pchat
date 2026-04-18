@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../stores/store';
+import { ttsManager, TTSProvider } from '../services/ttsManager';
 import { ttsService } from '../services/ttsService';
-import { aliyunTTSService } from '../services/aliyunTTSService';
 
 interface PlaybackControlsProps {
   totalSteps: number;
@@ -25,20 +25,21 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   const { isPaused, setIsPaused, playbackSpeed, setPlaybackSpeed } = useStore();
   const { ttsEnabled, setTtsEnabled, ttsState, setTtsState, ttsAutoPlay, setTtsAutoPlay } = useStore();
   const [showTtsSettings, setShowTtsSettings] = useState(false);
-  const [ttsProvider, setTtsProvider] = useState<'native' | 'aliyun'>('native');
-  const [aliyunState, setAliyunState] = useState(aliyunTTSService.currentState);
+  const [ttsProvider, setTtsProvider] = useState<TTSProvider>(() => ttsManager.getProvider());
+  const [ttsManagerState, setTtsManagerState] = useState(() => ttsManager.getState());
 
   useEffect(() => {
+    const unsubscribe = ttsManager.subscribe((state) => {
+      setTtsManagerState(state);
+      setTtsProvider(state.provider);
+    });
+
     ttsService.setStateChangeCallback((state) => {
       setTtsState(state);
     });
 
-    ttsService.setTTSErrorCallback(() => {
+    ttsManager.setTTSErrorCallback(() => {
       setTtsEnabled(false);
-    });
-
-    const unsubscribe = aliyunTTSService.subscribe((state) => {
-      setAliyunState(state);
     });
 
     return () => {
@@ -48,30 +49,27 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   useEffect(() => {
     if (isPaused) {
-      ttsService.pause();
-    } else if (ttsEnabled && ttsState.isPaused) {
-      ttsService.resume();
+      ttsManager.pause();
+    } else if (ttsEnabled && ttsManagerState.isPaused) {
+      ttsManager.resume();
     }
-  }, [isPaused, ttsEnabled, ttsState.isPaused]);
+  }, [isPaused, ttsEnabled, ttsManagerState.isPaused]);
 
   useEffect(() => {
     if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
-      if (ttsProvider === 'aliyun' && aliyunTTSService.isSupported) {
-        const timer = setTimeout(() => {
-          if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
-            aliyunTTSService.setSpeechRate(playbackSpeed * 100);
-            aliyunTTSService.speak(currentText);
-          }
-        }, 50);
-        return () => clearTimeout(timer);
-      }
+      const timer = setTimeout(() => {
+        if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
+          ttsManager.speak(currentText, { rate: playbackSpeed });
+        }
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [currentText, ttsEnabled, ttsAutoPlay, playbackSpeed, isPaused, ttsProvider]);
+  }, [currentText, ttsEnabled, ttsAutoPlay, playbackSpeed, isPaused]);
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const speed = parseFloat(e.target.value);
     setPlaybackSpeed(speed);
-    ttsService.setRate(speed);
+    ttsManager.setRate(speed);
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,47 +79,26 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   const handleTtsToggle = () => {
     if (ttsEnabled) {
-      if (ttsProvider === 'aliyun') {
-        aliyunTTSService.stop();
-      } else {
-        ttsService.stop();
-      }
+      ttsManager.stop();
       setTtsEnabled(false);
     } else {
       setTtsEnabled(true);
       if (currentText) {
-        if (ttsProvider === 'aliyun' && aliyunTTSService.isSupported) {
-          aliyunTTSService.setSpeechRate(playbackSpeed * 100);
-          aliyunTTSService.speak(currentText);
-        } else {
-          ttsService.speak(currentText, { rate: playbackSpeed });
-        }
+        ttsManager.speak(currentText, { rate: playbackSpeed });
       }
     }
   };
 
   const handleTtsPauseResume = () => {
-    if (ttsProvider === 'aliyun') {
-      if (aliyunState.isPaused) {
-        aliyunTTSService.resume();
-      } else {
-        aliyunTTSService.pause();
-      }
+    if (ttsManagerState.isPaused) {
+      ttsManager.resume();
     } else {
-      if (ttsState.isPaused) {
-        ttsService.resume();
-      } else {
-        ttsService.pause();
-      }
+      ttsManager.pause();
     }
   };
 
   const handleTtsStop = () => {
-    if (ttsProvider === 'aliyun') {
-      aliyunTTSService.stop();
-    } else {
-      ttsService.stop();
-    }
+    ttsManager.stop();
   };
 
   const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -130,6 +107,11 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   const handleTtsRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     ttsService.setRate(parseFloat(e.target.value));
+  };
+
+  const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newProvider = e.target.value as TTSProvider;
+    ttsManager.setProvider(newProvider);
   };
 
   const getProgressPercentage = () => {
@@ -189,47 +171,22 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             🔊
           </button>
 
-          {ttsEnabled && (
+          {ttsEnabled && ttsManagerState.isPlaying && (
             <>
-              {ttsProvider === 'aliyun' ? (
-                aliyunState.isPlaying && (
-                  <>
-                    <button
-                      className="playback-btn"
-                      onClick={handleTtsPauseResume}
-                      title={aliyunState.isPaused ? t('tts.resumeVoice') : t('tts.pauseVoice')}
-                    >
-                      {aliyunState.isPaused ? '▶' : '⏸'}
-                    </button>
-                    <button
-                      className="playback-btn"
-                      onClick={handleTtsStop}
-                      title={t('tts.stopVoice')}
-                    >
-                      ⏹
-                    </button>
-                  </>
-                )
-              ) : (
-                ttsState.isSpeaking && (
-                  <>
-                    <button
-                      className="playback-btn"
-                      onClick={handleTtsPauseResume}
-                      title={ttsState.isPaused ? t('tts.resumeVoice') : t('tts.pauseVoice')}
-                    >
-                      {ttsState.isPaused ? '▶' : '⏸'}
-                    </button>
-                    <button
-                      className="playback-btn"
-                      onClick={handleTtsStop}
-                      title={t('tts.stopVoice')}
-                    >
-                      ⏹
-                    </button>
-                  </>
-                )
-              )}
+              <button
+                className="playback-btn"
+                onClick={handleTtsPauseResume}
+                title={ttsManagerState.isPaused ? t('tts.resumeVoice') : t('tts.pauseVoice')}
+              >
+                {ttsManagerState.isPaused ? '▶' : '⏸'}
+              </button>
+              <button
+                className="playback-btn"
+                onClick={handleTtsStop}
+                title={t('tts.stopVoice')}
+              >
+                ⏹
+              </button>
             </>
           )}
 
@@ -266,13 +223,13 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
         {showTtsSettings && ttsEnabled && (
           <div className="tts-settings">
-            {aliyunTTSService.isSupported && (
+            {ttsManager.isAliyunSupported && (
               <div className="tts-settings__row">
                 <label className="tts-settings__label">{t('tts.provider')}</label>
                 <select
                   className="tts-settings__select"
                   value={ttsProvider}
-                  onChange={(e) => setTtsProvider(e.target.value as 'native' | 'aliyun')}
+                  onChange={handleProviderChange}
                 >
                   <option value="native">{t('tts.native')}</option>
                   <option value="aliyun">{t('tts.aliyun')}</option>
@@ -318,7 +275,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             {ttsProvider === 'aliyun' && (
               <div className="tts-settings__row">
                 <label className="tts-settings__label">{t('tts.voice')}</label>
-                <span className="tts-settings__value">{aliyunTTSService.getConfig().voice}</span>
+                <span className="tts-settings__value">{ttsManager.getConfig().voice}</span>
               </div>
             )}
 
