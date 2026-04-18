@@ -1,4 +1,4 @@
-import React, { useMemo, memo } from 'react';
+import React, { useMemo, memo, useCallback } from 'react';
 import { Node, Edge, Position, DSL, AnimationType, TimelineEvent, NODE_STYLES } from '../types';
 import {
   CANVAS_WIDTH,
@@ -110,6 +110,19 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     resetViewport
   } = useCanvasGesture(CANVAS_WIDTH, CANVAS_HEIGHT);
 
+  const nodesKey = useMemo(() => {
+    if (!nodes || nodes.size === 0) return '';
+    const nodeData = Array.from(nodes.entries()).map(([id, node]) => 
+      `${id}:${node.label}:${node.type}:${node.x}:${node.y}`
+    ).join('|');
+    return nodeData;
+  }, [nodes]);
+
+  const edgesKey = useMemo(() => {
+    if (!edges || edges.length === 0) return '';
+    return edges.map(e => `${e.from}-${e.to}`).join('|');
+  }, [edges]);
+
   const positions = useMemo(() => {
     const allNodes = nodes ? Array.from(nodes.values()) : [];
     const posMap = new Map<string, Position>();
@@ -152,9 +165,9 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       });
 
     return posMap;
-  }, [nodes, edges]);
+  }, [nodesKey, edgesKey, nodes, edges]);
 
-  const renderNode = (node: Node, pos: Position, isVisible: boolean) => {
+  const renderNode = useCallback((node: Node, pos: Position, isVisible: boolean) => {
     if (!node || !node.id || !pos) return null;
 
     const nodeType = node.type || 'concept';
@@ -248,9 +261,9 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
         </text>
       </g>
     );
-  };
+  }, [highlightedNodes, nodeAnimations]);
 
-  const renderTimelineEvent = (event: TimelineEvent) => {
+  const renderTimelineEvent = useCallback((event: TimelineEvent) => {
     if (!event || !event.from || !event.to) return null;
 
     const fromPos = positions.get(event.from);
@@ -313,9 +326,9 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
         )}
       </g>
     );
-  };
+  }, [positions, timelineAnimations]);
 
-  const renderEdge = (edge: Edge, isVisible: boolean) => {
+  const renderEdge = useCallback((edge: Edge, isVisible: boolean) => {
     if (!edge || !edge.from || !edge.to) return null;
 
     const fromPos = positions.get(edge.from);
@@ -342,6 +355,10 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       pathD = `M ${fromPos.x} ${fromPos.y} L ${toPos.x} ${toPos.y}`;
     }
 
+    const markerEnd = (edge.type === 'arrow' || edge.type === undefined) 
+      ? (isHighlighted ? 'url(#arrowhead-highlighted)' : 'url(#arrowhead)') 
+      : '';
+
     return (
       <g key={edgeKey} className="edge-group">
         <path
@@ -350,7 +367,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           stroke={stroke}
           strokeWidth={strokeWidth}
           strokeDasharray={edgeStyle.dashed ? '5,5' : 'none'}
-          markerEnd={edge.type === 'arrow' || edge.type === undefined ? 'url(#arrowhead)' : ''}
+          markerEnd={markerEnd}
           opacity={opacity}
           style={{
             filter: isHighlighted ? 'drop-shadow(0 2px 6px rgba(255, 138, 101, 0.4))' : 'none',
@@ -373,7 +390,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
         )}
       </g>
     );
-  };
+  }, [positions, highlightedEdges]);
 
   const safeEdges = Array.isArray(edges) ? edges : [];
   const safeNodes = nodes ? Array.from(nodes.values()) : [];
@@ -382,8 +399,10 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
 
   const svgTransform = `translate(${viewport.offsetX}, ${viewport.offsetY}) scale(${viewport.scale})`;
 
+  const hasSteps = dsl && dsl.steps && dsl.steps.length > 0;
+
   return (
-    <div 
+    <div
       className="svg-container"
       ref={containerRef}
       style={{ touchAction: 'none' }}
@@ -393,8 +412,8 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           {currentText}
         </div>
       )}
-      
-      <div className="canvas-controls">
+
+      <div className="canvas-controls-float">
         <button onClick={zoomOut} className="canvas-control-btn" title="缩小">
           −
         </button>
@@ -409,8 +428,8 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
 
       <svg
         width="100%"
-        height={CANVAS_HEIGHT}
-        style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #FFFBF7 100%)' }}
+        height="100%"
+        style={{ flex: 1, background: 'transparent' }}
         onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -427,6 +446,16 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           >
             <polygon points="0 0, 10 3.5, 0 7" fill="#A1887F" />
           </marker>
+          <marker
+            id="arrowhead-highlighted"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3.5, 0 7" fill="#FF8A65" />
+          </marker>
         </defs>
 
         <g transform={svgTransform}>
@@ -439,7 +468,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
         </g>
       </svg>
 
-      {dsl && dsl.steps && (
+      {hasSteps && (
         <div className="step-indicators">
           {dsl.steps.map((step, index) => (
             <div

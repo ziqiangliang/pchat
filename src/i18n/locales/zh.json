@@ -33,7 +33,10 @@
     "autoPlay": "自动播报",
     "on": "开启",
     "off": "关闭",
-    "notSupported": "当前浏览器不支持语音合成"
+    "notSupported": "当前浏览器不支持语音合成",
+    "provider": "TTS服务商",
+    "native": "浏览器原生",
+    "aliyun": "阿里云"
   },
   "chat": {
     "placeholder": "输入你的问题或粘贴 JSON...",

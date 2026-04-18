@@ -67,106 +67,123 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // 确保chatHistory是一个数组
   const safeChatHistory = Array.isArray(chatHistory) ? chatHistory : [];
-  const lastAssistantIndex = safeChatHistory.length > 0 
+  const lastAssistantIndex = safeChatHistory.length > 0
     ? safeChatHistory.length - 1 - [...safeChatHistory].reverse().findIndex(m => m.role === 'assistant')
     : -1;
 
   return (
-    <div className="content-area">
-      <div className="chat-history">
-        {safeChatHistory.map((message, index) => (
-          <div
-            key={message.timestamp}
-            className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-          >
-            <p>
-              {message.role === 'assistant'
-                ? (message.displayContent !== undefined && message.displayContent.length > 0 ? message.displayContent : '')
-                : message.content}
-            </p>
-            {message.role === 'assistant' && (
-              <>
-                <button
-                  className="copy-button"
-                  onClick={() => {
-                    const textToCopy = message.role === 'assistant'
-                      ? (message.displayContent !== undefined && message.displayContent.length > 0 ? message.displayContent : message.content)
-                      : message.content;
-                    handleCopyMessage(textToCopy, message.timestamp);
-                  }}
-                  title={t('chat.copy')}
-                >
-                  {copiedMessageId === message.timestamp ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="20,6 9,17 4,12"></polyline>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                  )}
-                </button>
-                {import.meta.env.DEV && (
-                  <button
-                    className="json-toggle-button"
-                    onClick={() => {
-                      const contentEl = document.getElementById(`json-${message.timestamp}`);
-                      if (contentEl) {
-                        contentEl.style.display = contentEl.style.display === 'none' ? 'block' : 'none';
-                      }
-                    }}
-                    title="JSON"
-                  >
-                    {'{ }'}
-                  </button>
-                )}
-                {import.meta.env.DEV && (
-                  <pre
-                    id={`json-${message.timestamp}`}
-                    className="json-raw-content"
-                    style={{ display: 'none' }}
-                  >
-                    {message.content}
-                  </pre>
-                )}
-              </>
-            )}
-            {message.role === 'assistant' && index === lastAssistantIndex && !isLoading && (
-              <div className="message-timer">
-                {t('chat.duration')} {formatDuration(currentElapsed)}
-              </div>
-            )}
-          </div>
-        ))}
-        {isLoading && (
-          <div className="loading">
-            <span className="loading-dot">·</span>
-            <span className="loading-dot">·</span>
-            <span className="loading-dot">·</span>
-            {loadingStartTime && (
-              <span className="loading-timer">
-                {formatDuration(currentElapsed)}
-              </span>
-            )}
-          </div>
-        )}
+    <div className="chat-panel">
+      <div className="chat-header">
+        <div className="chat-header-title">
+          <div className="chat-header-icon">💬</div>
+          <span>对话</span>
+        </div>
+        <div className="chat-status">
+          <div className="chat-status-dot"></div>
+          <span>在线</span>
+        </div>
       </div>
 
-      <div className="input-area">
-        <textarea
-          value={userInput}
-          onChange={(e) => onInputChange(e.target.value)}
-          onKeyPress={onKeyPress}
-          placeholder={t('chat.placeholder')}
-          disabled={isLoading}
-        />
-        <button onClick={onSend} disabled={isLoading || !userInput.trim()}>
-          {isLoading ? t('chat.sending') : t('controls.send')}
-        </button>
+      <div className="content-area">
+        <div className="chat-history">
+          {safeChatHistory.map((message, index) => (
+            <div
+              key={message.timestamp}
+              className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
+            >
+              <div className="message-bubble">
+                {message.role === 'assistant'
+                  ? (message.displayContent !== undefined && message.displayContent.length > 0 ? message.displayContent : '')
+                  : message.content}
+              </div>
+              <div className="message-time">
+                {message.role === 'assistant' && index === lastAssistantIndex && !isLoading ? (
+                  t('chat.duration') + ' ' + formatDuration(currentElapsed)
+                ) : (
+                  '刚刚'
+                )}
+              </div>
+              {message.role === 'assistant' && (
+                <div className="message-actions">
+                  <button
+                    className="message-action"
+                    onClick={() => {
+                      const textToCopy = message.role === 'assistant'
+                        ? (message.displayContent !== undefined && message.displayContent.length > 0 ? message.displayContent : message.content)
+                        : message.content;
+                      handleCopyMessage(textToCopy, message.timestamp);
+                    }}
+                    title={copiedMessageId === message.timestamp ? t('chat.copySuccess') : t('chat.copy')}
+                  >
+                    {copiedMessageId === message.timestamp ? '✓' : '📋'}
+                  </button>
+                  {import.meta.env.DEV && (
+                    <button
+                      className="message-action"
+                      onClick={() => {
+                        const contentEl = document.getElementById(`json-${message.timestamp}`);
+                        if (contentEl) {
+                          contentEl.style.display = contentEl.style.display === 'none' ? 'block' : 'none';
+                        }
+                      }}
+                      title="JSON"
+                    >
+                      {'{ }'}
+                    </button>
+                  )}
+                </div>
+              )}
+              {import.meta.env.DEV && message.role === 'assistant' && (
+                <pre
+                  id={`json-${message.timestamp}`}
+                  className="json-raw-content"
+                  style={{ display: 'none' }}
+                >
+                  {message.content}
+                </pre>
+              )}
+            </div>
+          ))}
+          {isLoading && (
+            <div className="loading">
+              <div className="loading-dots">
+                <span className="loading-dot"></span>
+                <span className="loading-dot"></span>
+                <span className="loading-dot"></span>
+              </div>
+              <span className="loading-text">{t('chat.loading')}</span>
+              {loadingStartTime && (
+                <span className="loading-timer">
+                  {formatDuration(currentElapsed)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="chat-input-area">
+          <div className="chat-input-wrapper">
+            <textarea
+              className="chat-input"
+              value={userInput}
+              onChange={(e) => onInputChange(e.target.value)}
+              onKeyPress={onKeyPress}
+              placeholder={t('chat.placeholder')}
+              disabled={isLoading}
+            />
+            <button
+              className="chat-send-btn"
+              onClick={onSend}
+              disabled={isLoading || !userInput.trim()}
+            >
+              →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
+export default ChatInterface;
