@@ -39,7 +39,7 @@
     "aliyun": "阿里云"
   },
   "chat": {
-    "placeholder": "输入你的问题或粘贴 JSON...",
+    "placeholder": "输入你的问题",
     "sending": "发送中...",
     "loading": "思考中...",
     "error": "抱歉，发生了错误。请稍后再试。",
@@ -47,7 +47,18 @@
     "copySuccess": "复制成功！",
     "copyFailed": "复制失败",
     "duration": "耗时",
-    "apiKeyRequired": "请设置 VITE_DEEPSEEK_API_KEY 环境变量"
+    "apiKeyRequired": "请设置 VITE_DEEPSEEK_API_KEY 环境变量",
+    "title": "对话",
+    "online": "在线"
+  },
+  "mobile": {
+    "menu": "菜单",
+    "play": "播放",
+    "pause": "暂停",
+    "replay": "重播",
+    "sound": "声音",
+    "mute": "静音",
+    "openMenu": "打开控制菜单"
   },
   "smartChat": {
     "title": "🖌️ 智能绘图",

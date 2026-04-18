@@ -22,7 +22,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   currentText = ''
 }) => {
   const { t } = useTranslation();
-  const { isPaused, setIsPaused, playbackSpeed, setPlaybackSpeed } = useStore();
+  const { isPaused, setIsPaused, playbackSpeed } = useStore();
   const { ttsEnabled, setTtsEnabled, ttsState, setTtsState, ttsAutoPlay, setTtsAutoPlay } = useStore();
   const [showTtsSettings, setShowTtsSettings] = useState(false);
   const [ttsProvider, setTtsProvider] = useState<TTSProvider>(() => ttsManager.getProvider());
@@ -65,12 +65,6 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
       return () => clearTimeout(timer);
     }
   }, [currentText, ttsEnabled, ttsAutoPlay, playbackSpeed, isPaused]);
-
-  const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const speed = parseFloat(e.target.value);
-    setPlaybackSpeed(speed);
-    ttsManager.setRate(speed);
-  };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const stepIndex = parseInt(e.target.value, 10);
@@ -148,18 +142,6 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           >
             ⏭
           </button>
-
-          <select
-            className="playback-speed"
-            value={playbackSpeed}
-            onChange={handleSpeedChange}
-            title={t('playback.speed')}
-          >
-            <option value="0.5">0.5x</option>
-            <option value="1">1x</option>
-            <option value="2">2x</option>
-            <option value="4">4x</option>
-          </select>
 
           <div className="playback-divider" />
 
