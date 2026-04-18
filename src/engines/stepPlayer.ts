@@ -1,6 +1,6 @@
 import { Step, DSL } from '../types';
 import { useStore, PlayMode } from '../stores/store';
-import { ttsService } from '../services/ttsService';
+import { ttsManager } from '../services/ttsManager';
 import {
   TTS_ANIMATION_DELAY,
   STEP_MIN_DURATION,
@@ -43,24 +43,24 @@ class StepPlayer {
 
   init() {
     if (this.isInitialized) return;
-    
+
     this.isInitialized = true;
     this.setupTTSCallback();
   }
 
   private setupTTSCallback() {
-    ttsService.setSpeakEndCallback(() => {
+    ttsManager.setSpeakEndCallback(() => {
       this.handleTTSEnd();
     });
 
-    ttsService.setTTSErrorCallback(() => {
+    ttsManager.setTTSErrorCallback(() => {
       useStore.getState().setTtsEnabled(false);
     });
   }
 
   private handleTTSEnd() {
     const state = useStore.getState();
-    
+
     if (!state.isAutoPlaying || !state.playMode) {
       return;
     }
@@ -81,20 +81,20 @@ class StepPlayer {
 
     const currentSessionId = this.sessionId;
     const { ttsEnabled, ttsAutoPlay } = useStore.getState();
-    
+
     if (!ttsEnabled || !ttsAutoPlay) {
       const currentStepIndex = state.currentStep;
       const dsl = state.dsl;
-      
+
       if (dsl && dsl.steps && currentStepIndex >= 0 && currentStepIndex < dsl.steps.length) {
         const currentStep = dsl.steps[currentStepIndex];
         const text = currentStep.text || '';
-        
+
         const typingDuration = text.length > 0
           ? TYPING_BASE_DELAY + text.length * TYPING_PER_CHAR_DELAY
           : 0;
         const totalDuration = Math.max(typingDuration, STEP_BASE_INTERVAL) + STEP_MIN_DURATION;
-        
+
         setTimeout(() => {
           if (this.isCurrentSession(currentSessionId) && useStore.getState().isAutoPlaying && !useStore.getState().isPaused) {
             this.playNextInQueue();
@@ -119,7 +119,7 @@ class StepPlayer {
 
   private playNextInQueue() {
     const state = useStore.getState();
-    
+
     if (!state.isAutoPlaying || !state.playMode) {
       return;
     }
@@ -138,7 +138,7 @@ class StepPlayer {
     } else if (state.playMode === 'replay') {
       const dsl = state.dsl;
       if (!dsl || !dsl.steps) return;
-      
+
       const nextIndex = state.playedStepCount;
       if (nextIndex < dsl.steps.length) {
         this.playStepInternal(dsl.steps[nextIndex], nextIndex);
@@ -150,7 +150,7 @@ class StepPlayer {
 
   private playStepInternal(step: Step, stepIndex: number) {
     const state = useStore.getState();
-    
+
     if (state.isPaused) {
       return;
     }
@@ -172,7 +172,7 @@ class StepPlayer {
       }
 
       useStore.getState().setDisplayText(text);
-      ttsService.speak(text);
+      ttsManager.speak(text);
 
       this.animationTimeoutId = setTimeout(() => {
         if (this.isCurrentSession(currentSessionId) && useStore.getState().isAutoPlaying && !useStore.getState().isPaused) {
@@ -213,33 +213,40 @@ class StepPlayer {
   startIncrementalMode() {
     this.stop();
     this.newSession();
-    
+
     const store = useStore.getState();
     store.resetGraphState();
     store.setPlayMode('incremental');
     store.setIsAutoPlaying(true);
     store.setPlayedStepCount(0);
     store.clearPendingSteps();
-    
+
     this.init();
   }
 
   addStepsToQueue(steps: Step[]) {
     const state = useStore.getState();
-    
+
     if (state.playMode !== 'incremental') {
       console.warn('[StepPlayer] 非增量模式，无法添加步骤到队列');
       return;
     }
 
     const isFirstStep = state.playedStepCount === 0 && state.pendingSteps.length === 0;
-    
+    const wasWaiting = state.pendingSteps.length === 0 && !ttsManager.getState().isPlaying;
+
     useStore.getState().addPendingSteps(steps);
 
     if (isFirstStep && steps.length > 0) {
       const firstStep = useStore.getState().shiftPendingStep();
       if (firstStep) {
         this.playStepInternal(firstStep, 0);
+      }
+    } else if (wasWaiting && steps.length > 0) {
+      const nextStep = useStore.getState().shiftPendingStep();
+      if (nextStep) {
+        const nextIndex = useStore.getState().playedStepCount;
+        this.playStepInternal(nextStep, nextIndex);
       }
     }
   }
@@ -254,7 +261,7 @@ class StepPlayer {
     store.setPlayMode('replay');
     store.setIsAutoPlaying(true);
     store.setPlayedStepCount(0);
-    
+
     this.init();
 
     if (dsl.steps && dsl.steps.length > 0) {
@@ -275,18 +282,18 @@ class StepPlayer {
       this.nonTtsTimeoutId = null;
     }
 
-    ttsService.stop();
+    ttsManager.stop();
     useStore.getState().stopPlayback();
   }
 
   pause() {
     useStore.getState().setIsPaused(true);
-    ttsService.pause();
+    ttsManager.pause();
   }
 
   resume() {
     useStore.getState().setIsPaused(false);
-    ttsService.resume();
+    ttsManager.resume();
   }
 
   jumpToStep(stepIndex: number) {
@@ -310,14 +317,14 @@ class StepPlayer {
 
     const { ttsEnabled, ttsAutoPlay } = useStore.getState();
     if (ttsEnabled && ttsAutoPlay && text) {
-      ttsService.speak(text);
+      ttsManager.speak(text);
     }
   }
 
   nextStep() {
     const state = useStore.getState();
     if (!state.dsl) return;
-    
+
     const nextIndex = state.currentStep + 1;
     if (nextIndex < state.dsl.steps.length) {
       this.jumpToStep(nextIndex);
@@ -327,7 +334,7 @@ class StepPlayer {
   prevStep() {
     const state = useStore.getState();
     if (!state.dsl) return;
-    
+
     const prevIndex = state.currentStep - 1;
     if (prevIndex >= 0) {
       this.jumpToStep(prevIndex);

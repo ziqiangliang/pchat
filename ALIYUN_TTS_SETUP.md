@@ -13,37 +13,61 @@
    - 搜索"智能语音交互"或"语音合成"
    - 点击开通服务
 
-3. **获取 AppKey 和 Token**
+3. **获取 AppKey 和 AccessKey**
    - 在智能语音交互控制台创建项目
    - 获取 AppKey
-   - 获取访问令牌（Token）
+   - 获取 AccessKey ID 和 AccessKey Secret（推荐）
+   - 或获取访问令牌 Token（静态方式，不推荐）
 
 ## 配置步骤
 
-### 方式 1：创建 .env 文件
+### 方式 1：使用 AccessKey（推荐）
+
+Token 会自动获取和刷新，无需手动维护。
 
 在项目根目录创建 `.env` 文件：
 
 ```env
-# 阿里云 TTS 配置
+# 阿里云 TTS 配置（推荐方式）
+VITE_ALIYUN_APP_KEY=你的AppKey
+VITE_ALIYUN_ACCESS_KEY_ID=你的AccessKeyId
+VITE_ALIYUN_ACCESS_KEY_SECRET=你的AccessKeySecret
+VITE_ALIYUN_VOICE=xiaoyun
+```
+
+**获取 AccessKey：**
+1. 登录阿里云控制台
+2. 点击右上角头像 -> AccessKey 管理
+3. 创建 AccessKey（建议使用 RAM 子账号，仅授予语音服务权限）
+4. 保存 AccessKey ID 和 AccessKey Secret
+
+### 方式 2：使用静态 Token（不推荐）
+
+Token 有有效期限制，过期后需要手动更新。
+
+```env
+# 阿里云 TTS 配置（静态 Token 方式）
 VITE_ALIYUN_APP_KEY=你的AppKey
 VITE_ALIYUN_TOKEN=你的Token
 VITE_ALIYUN_VOICE=xiaoyun
 ```
 
-### 方式 2：在代码中直接配置
-
-编辑 `src/services/aliyunTTSService.ts`，修改默认配置：
+### 方式 3：在代码中动态配置
 
 ```typescript
-private config: AliyunTTSConfig = {
+import { aliyunTTSService } from './services/aliyunTTSService';
+
+// 使用 AccessKey（推荐）
+aliyunTTSService.updateCredentials({
+  accessKeyId: '你的AccessKeyId',
+  accessKeySecret: '你的AccessKeySecret',
+});
+
+// 或使用静态 Token
+aliyunTTSService.updateConfig({
   appKey: '你的AppKey',
   token: '你的Token',
-  voice: 'xiaoyun',
-  volume: 50,
-  speechRate: 0,
-  pitchRate: 0,
-};
+});
 ```
 
 ## 常用音色列表
