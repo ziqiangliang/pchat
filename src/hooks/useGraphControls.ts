@@ -30,6 +30,7 @@ export const useGraphControls = (): GraphControlsReturn => {
   } = useStore();
 
   const stepPlayerRef = useRef<StepPlayer | null>(null);
+  const typingTimeoutIdsRef = useRef<Set<number>>(new Set());
 
   const getCurrentState = useCallback(() => {
     const state = useStore.getState();
@@ -46,11 +47,19 @@ export const useGraphControls = (): GraphControlsReturn => {
     };
   }, []);
 
+  const clearAllTypingTimeouts = useCallback(() => {
+    typingTimeoutIdsRef.current.forEach(id => clearTimeout(id));
+    typingTimeoutIdsRef.current.clear();
+  }, []);
+
   const startTypingEffect = useCallback((fullText: string, onComplete?: () => void) => {
+    clearAllTypingTimeouts();
+
     let charIndex = 0;
     const typeNextChar = () => {
       if (useStore.getState().isPaused) {
-        setTimeout(typeNextChar, 100);
+        const timeoutId = window.setTimeout(typeNextChar, 100);
+        typingTimeoutIdsRef.current.add(timeoutId);
         return;
       }
 
@@ -58,14 +67,16 @@ export const useGraphControls = (): GraphControlsReturn => {
       setDisplayText(fullText.substring(0, charIndex));
 
       if (charIndex < fullText.length) {
-        window.setTimeout(typeNextChar, TYPING_PER_CHAR_DELAY);
+        const timeoutId = window.setTimeout(typeNextChar, TYPING_PER_CHAR_DELAY);
+        typingTimeoutIdsRef.current.add(timeoutId);
       } else {
         onComplete?.();
       }
     };
 
-    window.setTimeout(typeNextChar, TYPING_BASE_DELAY);
-  }, [setDisplayText]);
+    const timeoutId = window.setTimeout(typeNextChar, TYPING_BASE_DELAY);
+    typingTimeoutIdsRef.current.add(timeoutId);
+  }, [setDisplayText, clearAllTypingTimeouts]);
 
   const executeStep = useCallback((step: Step, stepIndex: number) => {
     try {
@@ -226,10 +237,11 @@ export const useGraphControls = (): GraphControlsReturn => {
   }, [executeStep, startTypingEffect]);
 
   const handleClear = useCallback(() => {
+    clearAllTypingTimeouts();
     stepPlayerRef.current?.stop();
     resetGraphState();
     setDsl(null);
-  }, [resetGraphState, setDsl]);
+  }, [resetGraphState, setDsl, clearAllTypingTimeouts]);
 
   const handleJumpToStep = useCallback((stepIndex: number) => {
     stepPlayerRef.current?.jumpToStep(stepIndex);
