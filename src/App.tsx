@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import { useStore } from './stores/store';
@@ -7,6 +7,8 @@ import { GraphCanvas } from './components/GraphCanvas';
 import { ChatInterface } from './components/ChatInterface';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DraggablePlaybackControls } from './components/DraggablePlaybackControls';
+import { MobileBallControl } from './components/MobileBallControl';
+import { ttsService } from './services/ttsService';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
@@ -14,8 +16,8 @@ import './index.css';
 
 function App() {
   const { t } = useTranslation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // 使用selectors只订阅需要的状态
   const userInput = useStore(state => state.userInput);
   const setUserInput = useStore(state => state.setUserInput);
   const chatHistory = useStore(state => state.chatHistory);
@@ -43,8 +45,11 @@ function App() {
   const displayText = useStore(state => state.displayText);
   const resetGraphState = useStore(state => state.resetGraphState);
   const isDarkMode = useStore(state => state.isDarkMode);
+  const isPaused = useStore(state => state.isPaused);
+  const setIsPaused = useStore(state => state.setIsPaused);
+  const setPlaybackSpeed = useStore(state => state.setPlaybackSpeed);
+  const [volume, setVolume] = useState(1);
 
-  // 使用图形控制hook
   const {
     handleClear,
     handleJumpToStep,
@@ -53,10 +58,34 @@ function App() {
     stepPlayer
   } = useGraphControls();
 
-  // 处理粘贴 JSON
+  const handlePlay = useCallback(() => {
+    setIsPaused(false);
+    stepPlayer.resume();
+  }, [setIsPaused, stepPlayer]);
+
+  const handlePause = useCallback(() => {
+    setIsPaused(true);
+    stepPlayer.pause();
+  }, [setIsPaused, stepPlayer]);
+
+  const handleSpeedChange = useCallback((speed: number) => {
+    setPlaybackSpeed(speed);
+  }, [setPlaybackSpeed]);
+
+  const handleReplay = useCallback(() => {
+    if (dsl) {
+      resetGraphState();
+      stepPlayer.startReplay(dsl);
+    }
+  }, [dsl, resetGraphState, stepPlayer]);
+
+  const handleVolumeChange = useCallback((vol: number) => {
+    setVolume(vol);
+    ttsService.setVolume(vol);
+  }, []);
+
   const handlePasteJson = useCallback(() => {
     if (!pastedJson.trim()) {
-      // 这里可以实现一个更加美观的错误提示组件
       alert('请先粘贴JSON代码');
       return;
     }
@@ -64,7 +93,6 @@ function App() {
     const result = safeParseDSL(pastedJson);
 
     if (!result.success) {
-      // 这里可以实现一个更加美观的错误提示组件
       alert('JSON格式错误: ' + (result.error || '请检查格式'));
       return;
     }
@@ -74,9 +102,9 @@ function App() {
     setShowJsonPanel(false);
     setPastedJson('');
     stepPlayer.startReplay(result.data!);
+    setMobileMenuOpen(false);
   }, [pastedJson, resetGraphState, setDsl, setShowJsonPanel, setPastedJson, stepPlayer]);
 
-  // 处理 AI 生成
   const handleAIGenerate = useCallback(async () => {
     if (!userInput.trim() || isLoading) return;
 
@@ -143,7 +171,6 @@ function App() {
         let lastParsedStepsCount = 0;
         let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
-        // 清理所有待执行的定时器
         const clearPendingTimeouts = () => {
           pendingTimeouts.forEach(id => clearTimeout(id));
           pendingTimeouts = [];
@@ -199,7 +226,6 @@ function App() {
                       });
                     }
 
-                  // 流式解析：使用 extractStreamingSteps 提取已完成的 steps
                   if (!isDslParsed) {
                     const { completedSteps, isComplete } = extractStreamingSteps(actualContent);
 
@@ -233,13 +259,11 @@ function App() {
                   }
                 }
               } catch {
-                // 忽略解析错误
               }
             }
           }
         }
 
-        // 流结束后，确保 DSL 被正确解析
         clearPendingTimeouts();
         if (!isDslParsed && actualContent) {
           const finalResult = safeParseDSL(actualContent);
@@ -290,7 +314,6 @@ function App() {
     }
   }, [userInput, isLoading, chatHistory, setDsl, setChatHistory, setUserInput, setIsLoading, setLoadingStartTime, stepPlayer]);
 
-  // 键盘事件
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -298,41 +321,93 @@ function App() {
     }
   }, [handleAIGenerate]);
 
-
-
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh');
+  };
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   return (
     <div className={`app ${isDarkMode ? 'dark' : ''}`}>
       <header className="header">
-        <h1>
-          <span className="logo-icon">{t('app.logoIcon')}</span>
-          <span className="title-text">{t('app.title')}</span>
-        </h1>
-        <div className="controls">
+        <div className="header-left">
+          <button
+            className={`menu-toggle ${mobileMenuOpen ? 'active' : ''}`}
+            onClick={toggleMobileMenu}
+            aria-label="菜单"
+          >
+            <span className="menu-toggle-line"></span>
+            <span className="menu-toggle-line"></span>
+            <span className="menu-toggle-line"></span>
+          </button>
+
+          <div className="logo">
+            <div className="logo-icon">{t('app.logoIcon')}</div>
+            <div className="logo-text">
+              <span className="logo-title">{t('app.title').split(' - ')[0]}</span>
+              <span className="logo-subtitle">{t('app.title').split(' - ')[1]}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="header-actions">
           {import.meta.env.DEV && (
             <button
               onClick={() => setShowJsonPanel(!showJsonPanel)}
-              className={showJsonPanel ? 'active' : ''}
+              className={`btn btn-ghost ${showJsonPanel ? 'active' : ''}`}
             >
-              {showJsonPanel ? t('controls.closePanel') : t('controls.pasteJson')}
+              <span>🗂️</span>
+              <span>{t('controls.pasteJson')}</span>
             </button>
           )}
-          <button onClick={handleClear}>
-            {t('controls.clear')}
+          <button onClick={handleReplay} className="btn btn-secondary">
+            <span>🔄</span>
+            <span>{t('controls.replay')}</span>
           </button>
-          {dsl && (
-            <button onClick={() => stepPlayer.startReplay(dsl)}>
-              {t('controls.replay')}
-            </button>
-          )}
-          <button onClick={toggleLanguage} className="lang-toggle">
+          <button onClick={handleClear} className="btn btn-ghost btn-icon">
+            <span>🗑️</span>
+          </button>
+          <button onClick={toggleLanguage} className="btn btn-ghost lang-toggle">
             {i18n.language === 'zh' ? 'EN' : '中'}
           </button>
         </div>
       </header>
+
+      <div className={`mobile-menu-overlay ${mobileMenuOpen ? 'active' : ''}`} onClick={closeMobileMenu}>
+        <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+          <div className="mobile-menu-header">
+            <span className="mobile-menu-title">菜单</span>
+            <button className="mobile-menu-close" onClick={closeMobileMenu}>✕</button>
+          </div>
+          <div className="mobile-menu-items">
+            {import.meta.env.DEV && (
+              <button className="mobile-menu-item" onClick={() => { setShowJsonPanel(true); closeMobileMenu(); }}>
+                <span className="mobile-menu-item-icon">🗂️</span>
+                <span className="mobile-menu-item-text">{t('controls.pasteJson')}</span>
+              </button>
+            )}
+            <button className="mobile-menu-item" onClick={() => { handleReplay(); closeMobileMenu(); }}>
+              <span className="mobile-menu-item-icon">🔄</span>
+              <span className="mobile-menu-item-text">{t('controls.replay')}</span>
+            </button>
+            <button className="mobile-menu-item" onClick={() => { handleClear(); closeMobileMenu(); }}>
+              <span className="mobile-menu-item-icon">🗑️</span>
+              <span className="mobile-menu-item-text">{t('controls.clear')}</span>
+            </button>
+            <div className="mobile-menu-divider"></div>
+            <button className="mobile-menu-item" onClick={() => { toggleLanguage(); closeMobileMenu(); }}>
+              <span className="mobile-menu-item-icon">🌐</span>
+              <span className="mobile-menu-item-text">{i18n.language === 'zh' ? 'English' : '中文'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {import.meta.env.DEV && showJsonPanel && (
         <div className="json-panel-overlay" onClick={() => setShowJsonPanel(false)}>
@@ -357,33 +432,48 @@ function App() {
 
       <main className="main">
         <div className="canvas-area">
-          <GraphCanvas
-            dsl={dsl}
-            nodes={nodes}
-            edges={edges}
-            visibleNodeIds={visibleNodeIds}
-            visibleEdgeIds={visibleEdgeIds}
-            highlightedNodes={highlightedNodes}
-            highlightedEdges={highlightedEdges}
-            nodeAnimations={nodeAnimations}
-            activeTimelineEvents={activeTimelineEvents}
-            timelineAnimations={timelineAnimations}
-            currentText={displayText}
-            currentStep={currentStep}
-          />
+          <div className="canvas-card">
+            <GraphCanvas
+              dsl={dsl}
+              nodes={nodes}
+              edges={edges}
+              visibleNodeIds={visibleNodeIds}
+              visibleEdgeIds={visibleEdgeIds}
+              highlightedNodes={highlightedNodes}
+              highlightedEdges={highlightedEdges}
+              nodeAnimations={nodeAnimations}
+              activeTimelineEvents={activeTimelineEvents}
+              timelineAnimations={timelineAnimations}
+              currentText={displayText}
+              currentStep={currentStep}
+            />
 
-          {(dsl || isLoading) && dsl && dsl.steps && dsl.steps.length > 0 && (
-            <DraggablePlaybackControls>
-              <PlaybackControls
-                totalSteps={dsl.steps.length}
-                currentStep={currentStep}
-                onJumpToStep={handleJumpToStep}
-                onPrevStep={handlePrevStep}
-                onNextStep={handleNextStep}
-                currentText={displayText}
-              />
-            </DraggablePlaybackControls>
-          )}
+            {(dsl || isLoading) && dsl && dsl.steps && dsl.steps.length > 0 && (
+              <>
+                <DraggablePlaybackControls>
+                  <PlaybackControls
+                    totalSteps={dsl.steps.length}
+                    currentStep={currentStep}
+                    onJumpToStep={handleJumpToStep}
+                    onPrevStep={handlePrevStep}
+                    onNextStep={handleNextStep}
+                    currentText={displayText}
+                  />
+                </DraggablePlaybackControls>
+                <MobileBallControl
+                  onPlay={handlePlay}
+                  onPause={handlePause}
+                  onPrev={handlePrevStep}
+                  onNext={handleNextStep}
+                  onSpeedChange={handleSpeedChange}
+                  onVolumeChange={handleVolumeChange}
+                  onReplay={handleReplay}
+                  isPlaying={!isPaused}
+                  volume={volume}
+                />
+              </>
+            )}
+          </div>
         </div>
 
         <ChatInterface

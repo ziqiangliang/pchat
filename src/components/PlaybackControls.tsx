@@ -56,18 +56,15 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   useEffect(() => {
     if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
-      const timer = setTimeout(() => {
-        if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
-          if (ttsProvider === 'aliyun' && aliyunTTSService.isSupported) {
+      if (ttsProvider === 'aliyun' && aliyunTTSService.isSupported) {
+        const timer = setTimeout(() => {
+          if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
             aliyunTTSService.setSpeechRate(playbackSpeed * 100);
             aliyunTTSService.speak(currentText);
-          } else {
-            ttsService.speak(currentText, { rate: playbackSpeed });
           }
-        }
-      }, 50);
-      
-      return () => clearTimeout(timer);
+        }, 50);
+        return () => clearTimeout(timer);
+      }
     }
   }, [currentText, ttsEnabled, ttsAutoPlay, playbackSpeed, isPaused, ttsProvider]);
 
@@ -145,20 +142,20 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
       <div className="playback-controls__header">
         <div className="playback-controls__main">
           <button
-            className="playback-btn playback-btn--pause"
-            onClick={() => setIsPaused(!isPaused)}
-            title={isPaused ? t('playback.resume') : t('playback.pause')}
-          >
-            {isPaused ? '▶' : '⏸'}
-          </button>
-
-          <button
             className="playback-btn"
             onClick={onPrevStep}
             disabled={currentStep <= 0}
             title={t('playback.prevStep')}
           >
             ⏮
+          </button>
+
+          <button
+            className="playback-btn playback-btn--pause"
+            onClick={() => setIsPaused(!isPaused)}
+            title={isPaused ? t('playback.resume') : t('playback.pause')}
+          >
+            {isPaused ? '▶' : '⏸'}
           </button>
 
           <button
@@ -185,7 +182,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           <div className="playback-divider" />
 
           <button
-            className={`playback-btn playback-btn--tts ${ttsEnabled ? 'active' : ''}`}
+            className={`playback-btn tts-btn ${ttsEnabled ? 'active' : ''}`}
             onClick={handleTtsToggle}
             title={ttsEnabled ? t('tts.disable') : t('tts.enable')}
           >
@@ -340,3 +337,5 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     </div>
   );
 };
+
+export default PlaybackControls;

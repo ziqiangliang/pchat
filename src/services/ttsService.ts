@@ -17,6 +17,9 @@ export type TTSState = {
 };
 
 const TTS_TIMEOUT = 30000;
+const ONSTART_TIMEOUT = 1000;
+const KICK_TIMEOUT = 350;
+const CANCEL_SPEAK_DELAY = 200;
 
 function isProblematicBrowser(): boolean {
   const ua = navigator.userAgent.toLowerCase();
@@ -48,6 +51,13 @@ class TTSService {
   private speakTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastSpokenText: string = '';
   private fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private onstartTimerId: ReturnType<typeof setTimeout> | null = null;
+  private kickTimerId: ReturnType<typeof setTimeout> | null = null;
+  private pendingSpeak: { text: string; options?: { rate?: number; pitch?: number; volume?: number } } | null = null;
+  private isWarmedUp: boolean = false;
+  private voicesLoaded: boolean = false;
+  private retryCount: number = 0;
+  private maxRetries: number = 3;
 
   constructor() {
     this.supported = 'speechSynthesis' in window && !isProblematicBrowser();
@@ -60,6 +70,33 @@ class TTSService {
       if (this.synthesis!.onvoiceschanged !== undefined) {
         this.synthesis!.onvoiceschanged = () => this.loadVoices();
       }
+
+      document.addEventListener('click', this.handleUserInteraction, { once: true });
+      document.addEventListener('touchstart', this.handleUserInteraction, { once: true });
+      document.addEventListener('keydown', this.handleUserInteraction, { once: true });
+    }
+  }
+
+  private handleUserInteraction = () => {
+    if (!this.isWarmedUp && this.synthesis && !this.voicesLoaded) {
+      this.synthesis.getVoices();
+    }
+    if (!this.isWarmedUp && this.synthesis) {
+      this.warmupEngine();
+    }
+  };
+
+  private warmupEngine() {
+    try {
+      const warmupUtterance = new SpeechSynthesisUtterance('');
+      warmupUtterance.volume = 0;
+      this.synthesis!.speak(warmupUtterance);
+      setTimeout(() => {
+        try { this.synthesis!.cancel(); } catch {}
+        this.isWarmedUp = true;
+      }, 50);
+    } catch {
+      this.isWarmedUp = true;
     }
   }
 
@@ -67,6 +104,9 @@ class TTSService {
     if (!this.synthesis) return;
 
     const voices = this.synthesis.getVoices();
+    if (voices.length > 0) {
+      this.voicesLoaded = true;
+    }
     const ttsVoices: TTSVoice[] = voices.map(voice => ({
       name: voice.name,
       lang: voice.lang,
@@ -116,21 +156,16 @@ class TTSService {
   speak(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
     if (!text.trim()) return;
 
-    if (this.speakTimeoutId) {
-      clearTimeout(this.speakTimeoutId);
-      this.speakTimeoutId = null;
-    }
-
-    if (this.fallbackTimeoutId) {
-      clearTimeout(this.fallbackTimeoutId);
-      this.fallbackTimeoutId = null;
-    }
+    this.clearAllTimers();
 
     if (text === this.lastSpokenText && this.state.isSpeaking) {
       return;
     }
 
-    this.stop(true);
+    this.pendingSpeak = { text, options };
+    this.retryCount = 0;
+
+    this.cancelInternal(true);
 
     if (!this.supported || !this.synthesis) {
       this.fallbackSpeak(text);
@@ -138,10 +173,70 @@ class TTSService {
     }
 
     this.lastSpokenText = text;
-    this.performSpeak(text, options);
+    this.ensureThenSpeak(text, options);
+  }
+
+  private clearAllTimers() {
+    if (this.speakTimeoutId) { clearTimeout(this.speakTimeoutId); this.speakTimeoutId = null; }
+    if (this.fallbackTimeoutId) { clearTimeout(this.fallbackTimeoutId); this.fallbackTimeoutId = null; }
+    if (this.onstartTimerId) { clearTimeout(this.onstartTimerId); this.onstartTimerId = null; }
+    if (this.kickTimerId) { clearTimeout(this.kickTimerId); this.kickTimerId = null; }
+  }
+
+  private cancelInternal(silent: boolean) {
+    this.clearAllTimers();
+    
+    if (this.synthesis) {
+      try {
+        this.synthesis.cancel();
+      } catch (error) {
+        if (!silent) {
+          console.warn('TTS cancel error:', error);
+        }
+      }
+    }
+    
+    this.state.isSpeaking = false;
+    this.state.isPaused = false;
+    this.state.currentText = '';
+    this.notifyStateChange();
+  }
+
+  private ensureThenSpeak(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
+    const doSpeak = () => {
+      if (this.pendingSpeak?.text !== text) return;
+      this.pendingSpeak = null;
+      this.performSpeak(text, options);
+    };
+
+    if (!this.voicesLoaded) {
+      const voices = this.synthesis!.getVoices();
+      if (voices.length > 0) {
+        this.loadVoices();
+        doSpeak();
+      } else {
+        const waitForVoices = () => {
+          this.synthesis!.removeEventListener('voiceschanged', waitForVoices);
+          this.loadVoices();
+          doSpeak();
+        };
+        this.synthesis!.addEventListener('voiceschanged', waitForVoices, { once: true });
+
+        setTimeout(() => {
+          if (this.pendingSpeak?.text === text) {
+            this.synthesis!.removeEventListener('voiceschanged', waitForVoices);
+            this.loadVoices();
+            doSpeak();
+          }
+        }, 2000);
+      }
+    } else {
+      setTimeout(doSpeak, CANCEL_SPEAK_DELAY);
+    }
   }
 
   private fallbackSpeak(text: string) {
+    this.pendingSpeak = null;
     this.state.isSpeaking = true;
     this.state.isPaused = false;
     this.state.currentText = text;
@@ -185,7 +280,14 @@ class TTSService {
       this.utterance.pitch = options?.pitch ?? this.state.pitch;
       this.utterance.volume = options?.volume ?? this.state.volume;
 
+      let hasStarted = false;
+      let currentTextRef = text;
+      let kicked = false;
+
       this.utterance.onstart = () => {
+        hasStarted = true;
+        this.clearKickAndOnstartTimers();
+
         this.state.isSpeaking = true;
         this.state.isPaused = false;
         this.state.currentText = text;
@@ -197,13 +299,11 @@ class TTSService {
       };
 
       this.utterance.onend = () => {
-        if (this.speakTimeoutId) {
-          clearTimeout(this.speakTimeoutId);
-          this.speakTimeoutId = null;
-        }
+        this.clearKickAndOnstartTimers();
+        if (this.speakTimeoutId) { clearTimeout(this.speakTimeoutId); this.speakTimeoutId = null; }
         this.state.isSpeaking = false;
         this.state.isPaused = false;
-        if (this.state.currentText === text) {
+        if (this.state.currentText === currentTextRef) {
           this.state.currentText = '';
         }
         this.notifyStateChange();
@@ -214,11 +314,19 @@ class TTSService {
       };
 
       this.utterance.onerror = (event) => {
+        this.clearKickAndOnstartTimers();
         if (event.error === 'interrupted' || event.error === 'canceled') {
           return;
         }
 
-        console.warn('TTS Error:', event.error);
+        console.warn('[TTS] Error:', event.error);
+
+        if (!hasStarted && this.retryCount < this.maxRetries) {
+          console.warn('[TTS] Silent failure detected, retrying...', this.retryCount + 1, '/', this.maxRetries);
+          this.retryWithFullCycle(text, options);
+          return;
+        }
+
         this.state.isSpeaking = false;
         this.state.isPaused = false;
         this.notifyStateChange();
@@ -242,11 +350,37 @@ class TTSService {
         this.notifyStateChange();
       };
 
+      this.kickTimerId = setTimeout(() => {
+        if (!hasStarted && !kicked && this.synthesis) {
+          console.log('[TTS] Kick: attempting pause/resume to unstick Chrome speech engine');
+          kicked = true;
+          try {
+            if (this.synthesis!.speaking) {
+              this.synthesis!.pause();
+              setTimeout(() => {
+                try { this.synthesis!.resume(); } catch {}
+              }, 50);
+            }
+          } catch {}
+        }
+      }, KICK_TIMEOUT);
+
+      this.onstartTimerId = setTimeout(() => {
+        if (!hasStarted && this.state.currentText !== text) {
+          return;
+        }
+
+        if (!hasStarted) {
+          console.warn('[TTS] onstart timeout after kick, retrying...');
+          this.retryWithFullCycle(text, options);
+        }
+      }, ONSTART_TIMEOUT);
+
       this.synthesis.speak(this.utterance);
 
       this.speakTimeoutId = setTimeout(() => {
         if (this.state.isSpeaking) {
-          console.warn('TTS timeout, forcing end');
+          console.warn('[TTS] timeout, forcing end');
           this.stop();
           if (this.onSpeakEnd) {
             this.onSpeakEnd();
@@ -255,7 +389,7 @@ class TTSService {
       }, TTS_TIMEOUT);
 
     } catch (error) {
-      console.warn('TTS speak error:', error);
+      console.warn('[TTS] speak exception:', error);
       this.state.isSpeaking = false;
       this.state.isPaused = false;
       this.notifyStateChange();
@@ -264,6 +398,40 @@ class TTSService {
         this.onSpeakEnd();
       }
     }
+  }
+
+  private clearKickAndOnstartTimers() {
+    if (this.kickTimerId) { clearTimeout(this.kickTimerId); this.kickTimerId = null; }
+    if (this.onstartTimerId) { clearTimeout(this.onstartTimerId); this.onstartTimerId = null; }
+  }
+
+  private retryWithFullCycle(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
+    this.clearAllTimers();
+    this.retryCount++;
+
+    if (this.retryCount > this.maxRetries) {
+      console.warn('[TTS] Max retries exceeded, falling back');
+      this.fallbackSpeak(text);
+      return;
+    }
+
+    this.state.isSpeaking = false;
+    this.state.isPaused = false;
+    this.notifyStateChange();
+
+    try {
+      this.synthesis!.cancel();
+    } catch {}
+
+    const delay = 200 * this.retryCount;
+
+    console.log(`[TTS] Retry #${this.retryCount} after ${delay}ms delay`);
+
+    setTimeout(() => {
+      if (this.lastSpokenText === text) {
+        this.performSpeak(text, options);
+      }
+    }, delay);
   }
 
   pause() {
@@ -279,30 +447,8 @@ class TTSService {
   }
 
   stop(silent: boolean = false) {
-    if (this.speakTimeoutId) {
-      clearTimeout(this.speakTimeoutId);
-      this.speakTimeoutId = null;
-    }
-    
-    if (this.fallbackTimeoutId) {
-      clearTimeout(this.fallbackTimeoutId);
-      this.fallbackTimeoutId = null;
-    }
-    
-    if (this.synthesis) {
-      try {
-        this.synthesis.cancel();
-      } catch (error) {
-        if (!silent) {
-          console.warn('TTS cancel error:', error);
-        }
-      }
-    }
-    
-    this.state.isSpeaking = false;
-    this.state.isPaused = false;
-    this.state.currentText = '';
-    this.notifyStateChange();
+    this.pendingSpeak = null;
+    this.cancelInternal(silent);
   }
 
   setVoice(voiceURI: string) {
