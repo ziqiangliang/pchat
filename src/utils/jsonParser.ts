@@ -92,12 +92,9 @@ export function validateDSL(json: unknown): { valid: boolean; errors: string[] }
       errors.push('meta 必须是对象');
     } else {
       const meta = dsl.meta as Record<string, unknown>;
-      // domain 必须是标准值
-      if (meta.domain) {
-        const validDomains = ['mathematics', 'software_engineering', 'physics', 'general'];
-        if (!validDomains.includes(meta.domain as string)) {
-          errors.push(`domain 必须是以下值之一: ${validDomains.join(', ')}`);
-        }
+      // domain 可以是任意描述性字符串，不做严格枚举限制
+      if (meta.domain && typeof meta.domain !== 'string') {
+        errors.push('domain 必须是字符串');
       }
     }
   }
