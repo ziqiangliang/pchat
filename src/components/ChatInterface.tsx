@@ -89,7 +89,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="chat-history">
           {safeChatHistory.map((message, index) => (
             <div
-              key={message.timestamp}
+              key={`${message.timestamp}-${index}`}
               className={`message ${message.role === 'user' ? 'user' : 'assistant'}`}
             >
               <div className="message-bubble">

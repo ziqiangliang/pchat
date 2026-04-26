@@ -20,13 +20,14 @@ interface UseCanvasGestureReturn {
   handleTouchMove: (e: React.TouchEvent) => void;
   handleTouchEnd: () => void;
   resetViewport: () => void;
+  fitToView: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
 }
 
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 3;
-const ZOOM_STEP = 0.1;
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 4;
+const ZOOM_STEP = 0.15;
 
 export function useCanvasGesture(
   baseWidth: number = 800,
@@ -47,6 +48,22 @@ export function useCanvasGesture(
   const touchStartRef = useRef<{ x: number; y: number; scale: number } | null>(null);
   const lastTouchDistanceRef = useRef<number>(0);
   const initialViewportRef = useRef<ViewportState | null>(null);
+  const fitScaleRef = useRef<number>(1);
+
+  const calculateFitScale = useCallback(() => {
+    if (!containerRef.current) return 1;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const containerWidth = rect.width;
+    const containerHeight = rect.height - 100;
+
+    const scaleX = containerWidth / baseWidth;
+    const scaleY = containerHeight / baseHeight;
+    const fitScale = Math.min(scaleX, scaleY, 1);
+
+    fitScaleRef.current = fitScale;
+    return fitScale;
+  }, [baseWidth, baseHeight]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -59,17 +76,12 @@ export function useCanvasGesture(
         const scaleY = containerHeight / baseHeight;
         const fitScale = Math.min(scaleX, scaleY, 1);
 
+        fitScaleRef.current = fitScale;
+
         setCanvasSize({
           width: baseWidth,
           height: baseHeight
         });
-
-        if (viewport.scale === 1) {
-          setViewport(prev => ({
-            ...prev,
-            scale: fitScale
-          }));
-        }
       }
     };
 
@@ -78,9 +90,20 @@ export function useCanvasGesture(
     return () => window.removeEventListener('resize', updateSize);
   }, [baseWidth, baseHeight]);
 
+  useEffect(() => {
+    const fitScale = calculateFitScale();
+
+    setViewport(prev => ({
+      ...prev,
+      scale: fitScale,
+      offsetX: (baseWidth * fitScale - baseWidth) / 2,
+      offsetY: (baseHeight * fitScale - baseHeight) / 2
+    }));
+  }, []);
+
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    
+
     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
     const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, viewport.scale + delta));
 
@@ -177,8 +200,22 @@ export function useCanvasGesture(
   }, []);
 
   const resetViewport = useCallback(() => {
-    setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
-  }, []);
+    const fitScale = calculateFitScale();
+    setViewport({
+      scale: fitScale,
+      offsetX: (baseWidth * fitScale - baseWidth) / 2,
+      offsetY: (baseHeight * fitScale - baseHeight) / 2
+    });
+  }, [calculateFitScale, baseWidth, baseHeight]);
+
+  const fitToView = useCallback(() => {
+    const fitScale = calculateFitScale();
+    setViewport({
+      scale: fitScale,
+      offsetX: (baseWidth * fitScale - baseWidth) / 2,
+      offsetY: (baseHeight * fitScale - baseHeight) / 2
+    });
+  }, [calculateFitScale, baseWidth, baseHeight]);
 
   const zoomIn = useCallback(() => {
     setViewport(prev => ({
@@ -203,6 +240,7 @@ export function useCanvasGesture(
     handleTouchMove,
     handleTouchEnd,
     resetViewport,
+    fitToView,
     zoomIn,
     zoomOut
   };

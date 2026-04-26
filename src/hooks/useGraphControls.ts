@@ -23,9 +23,17 @@ export const useGraphControls = (): GraphControlsReturn => {
     setHighlightedNodes,
     setHighlightedEdges,
     setNodeAnimations,
+    setEdgeAnimations,
     setActiveTimelineEvents,
     setTimelineAnimations,
     setDisplayText,
+    setCoordVisible,
+    setMathPoints,
+    setMathLines,
+    setMathCurves,
+    setVisibleMathIds,
+    setMathAnimations,
+    setHighlightedMathIds,
     resetGraphState
   } = useStore();
 
@@ -40,10 +48,19 @@ export const useGraphControls = (): GraphControlsReturn => {
       visibleNodeIds: state.visibleNodeIds,
       visibleEdgeIds: state.visibleEdgeIds,
       nodeAnimations: state.nodeAnimations,
+      edgeAnimations: state.edgeAnimations,
       activeTimelineEvents: state.activeTimelineEvents,
       timelineAnimations: state.timelineAnimations,
       highlightedNodes: state.highlightedNodes,
-      highlightedEdges: state.highlightedEdges
+      highlightedEdges: state.highlightedEdges,
+      // 数学层
+      mathPoints: state.mathPoints,
+      mathLines: state.mathLines,
+      mathCurves: state.mathCurves,
+      visibleMathIds: state.visibleMathIds,
+      mathAnimations: state.mathAnimations,
+      highlightedMathIds: state.highlightedMathIds,
+      coordVisible: state.coordVisible
     };
   }, []);
 
@@ -86,48 +103,124 @@ export const useGraphControls = (): GraphControlsReturn => {
       let newVisibleNodeIds = new Set(current.visibleNodeIds);
       let newVisibleEdgeIds = new Set(current.visibleEdgeIds);
       let newNodeAnimations = new Map(current.nodeAnimations);
+      let newEdgeAnimations = new Map(current.edgeAnimations);
       let newActiveTimelineEvents = [...current.activeTimelineEvents];
       let newTimelineAnimations = new Map(current.timelineAnimations);
 
+      const animType = step.animate?.type || 'fade';
+      const animDuration = step.animate?.duration || NODE_ANIMATION_DURATION;
+
+      // ===== 1. 先处理 remove（删除节点 + 关联边） =====
+      if (step.remove && Array.isArray(step.remove)) {
+        const removedNodeIds = new Set(step.remove);
+
+        // 从可见集合中移除节点
+        step.remove.forEach(id => {
+          if (id) {
+            newVisibleNodeIds.delete(id);
+            newNodes.delete(id);
+          }
+        });
+
+        // 彻底删除关联边（从 edges 数组 + visibleEdgeIds 中移除）
+        newEdges = newEdges.filter(edge => {
+          if (removedNodeIds.has(edge.from) || removedNodeIds.has(edge.to)) {
+            newVisibleEdgeIds.delete(`${edge.from}-${edge.to}`);
+            newEdgeAnimations.delete(`${edge.from}-${edge.to}`);
+            return false; // 从数组中删除
+          }
+          return true;
+        });
+      }
+
+      // ===== 2. 添加节点（总是带动画） =====
       if (step.add && Array.isArray(step.add)) {
         step.add.forEach(node => {
           if (node && node.id) {
             newNodes.set(node.id, node);
             newVisibleNodeIds.add(node.id);
+            newNodeAnimations.set(node.id, animType);
           }
         });
 
-        if (step.animate && step.animate.type && step.add) {
-          step.add.forEach(node => {
-            if (node && node.id) {
-              newNodeAnimations.set(node.id, step.animate!.type);
-            }
-          });
+        // 动画结束后清除动画状态
+        step.add.forEach(node => {
+          if (node && node.id) {
+            setTimeout(() => {
+              const currentAnims = useStore.getState().nodeAnimations;
+              const newMap = new Map(currentAnims);
+              newMap.delete(node.id!);
+              setNodeAnimations(newMap);
+            }, animDuration);
+          }
+        });
+      }
 
-          step.add.forEach(node => {
-            if (node && node.id) {
+      // ===== 3. 添加边（延迟出现，带绘制动画） =====
+      if (step.connect && Array.isArray(step.connect)) {
+        const edgeDelay = step.add && step.add.length > 0 ? animDuration * 0.4 : 0;
+
+        step.connect.forEach(edge => {
+          if (edge && edge.from && edge.to) {
+            // 如果已存在相同 from→to 的边，用新边替换（更新标签等）
+            const existingIdx = newEdges.findIndex(e => e.from === edge.from && e.to === edge.to);
+            if (existingIdx >= 0) {
+              newEdges[existingIdx] = edge;
+            } else {
+              newEdges.push(edge);
+            }
+            const edgeKey = `${edge.from}-${edge.to}`;
+
+            if (edgeDelay > 0) {
+              // 延迟添加边的可见性和动画
               setTimeout(() => {
-                const currentAnims = useStore.getState().nodeAnimations;
-                const newMap = new Map(currentAnims);
-                newMap.delete(node.id!);
-                setNodeAnimations(newMap);
-              }, step.animate!.duration || NODE_ANIMATION_DURATION);
+                const state = useStore.getState();
+
+                // 安全检查：如果端点节点已不可见（被后续步骤 remove），不再添加边
+                if (!state.visibleNodeIds.has(edge.from) || !state.visibleNodeIds.has(edge.to)) {
+                  return;
+                }
+
+                const updatedVisibleEdgeIds = new Set(state.visibleEdgeIds);
+                updatedVisibleEdgeIds.add(edgeKey);
+                setVisibleEdgeIds(updatedVisibleEdgeIds);
+
+                const updatedEdgeAnims = new Map(state.edgeAnimations);
+                updatedEdgeAnims.set(edgeKey, 'draw');
+                setEdgeAnimations(updatedEdgeAnims);
+
+                // 动画结束后清除
+                setTimeout(() => {
+                  const anims = useStore.getState().edgeAnimations;
+                  const m = new Map(anims);
+                  m.delete(edgeKey);
+                  setEdgeAnimations(m);
+                }, animDuration);
+              }, edgeDelay);
+            } else {
+              newVisibleEdgeIds.add(edgeKey);
+              newEdgeAnimations.set(edgeKey, 'draw');
+            }
+          }
+        });
+
+        // 无延迟时，清除动画
+        if (edgeDelay === 0) {
+          step.connect.forEach(edge => {
+            if (edge && edge.from && edge.to) {
+              const edgeKey = `${edge.from}-${edge.to}`;
+              setTimeout(() => {
+                const anims = useStore.getState().edgeAnimations;
+                const m = new Map(anims);
+                m.delete(edgeKey);
+                setEdgeAnimations(m);
+              }, animDuration);
             }
           });
         }
       }
 
-      if (step.connect && Array.isArray(step.connect)) {
-        step.connect.forEach(edge => {
-          if (edge && edge.from && edge.to) {
-            if (!newEdges.some(e => e.from === edge.from && e.to === edge.to)) {
-              newEdges.push(edge);
-            }
-            newVisibleEdgeIds.add(`${edge.from}-${edge.to}`);
-          }
-        });
-      }
-
+      // ===== 4. 高亮 =====
       setHighlightedNodes(new Set());
       setHighlightedEdges(new Set());
 
@@ -143,26 +236,107 @@ export const useGraphControls = (): GraphControlsReturn => {
         setHighlightedEdges(highlightedEdgeSet);
       }
 
-      if (step.remove && Array.isArray(step.remove)) {
-        step.remove.forEach(id => {
-          if (id) newVisibleNodeIds.delete(id);
-        });
-
-        const edgesToRemove = new Set(step.remove!);
-        newEdges.forEach(edge => {
-          if (edgesToRemove.has(edge.from) || edgesToRemove.has(edge.to)) {
-            newVisibleEdgeIds.delete(`${edge.from}-${edge.to}`);
-          }
-        });
-      }
-
+      // ===== 5. 提交状态 =====
       setNodes(newNodes);
       setEdges(newEdges);
       setVisibleNodeIds(newVisibleNodeIds);
       setVisibleEdgeIds(newVisibleEdgeIds);
       setNodeAnimations(newNodeAnimations);
+      setEdgeAnimations(newEdgeAnimations);
       setActiveTimelineEvents(newActiveTimelineEvents);
       setTimelineAnimations(newTimelineAnimations);
+
+      // ===== 6. 数学层操作（showCoord + math） =====
+      if (step.showCoord) {
+        setCoordVisible(true);
+      }
+
+      if (step.math) {
+        const mathState = getCurrentState();
+        let newMathPoints = new Map(mathState.mathPoints);
+        let newMathLines = new Map(mathState.mathLines);
+        let newMathCurves = new Map(mathState.mathCurves);
+        let newVisibleMathIds = new Set(mathState.visibleMathIds);
+        let newMathAnims = new Map(mathState.mathAnimations);
+
+        // 移除数学对象
+        if (step.math.removePoints) {
+          step.math.removePoints.forEach(id => {
+            newMathPoints.delete(id);
+            newVisibleMathIds.delete(id);
+            newMathAnims.delete(id);
+          });
+        }
+        if (step.math.removeLines) {
+          step.math.removeLines.forEach(id => {
+            newMathLines.delete(id);
+            newVisibleMathIds.delete(id);
+            newMathAnims.delete(id);
+          });
+        }
+        if (step.math.removeCurves) {
+          step.math.removeCurves.forEach(id => {
+            newMathCurves.delete(id);
+            newVisibleMathIds.delete(id);
+            newMathAnims.delete(id);
+          });
+        }
+
+        // 添加数学点
+        if (step.math.addPoints) {
+          step.math.addPoints.forEach(pt => {
+            newMathPoints.set(pt.id, pt);
+            newVisibleMathIds.add(pt.id);
+            newMathAnims.set(pt.id, 'scale');
+          });
+        }
+
+        // 添加数学线
+        if (step.math.addLines) {
+          step.math.addLines.forEach(line => {
+            const lineId = line.id || `${line.from}->${line.to}`;
+            newMathLines.set(lineId, { ...line, id: lineId });
+            newVisibleMathIds.add(lineId);
+            newMathAnims.set(lineId, 'draw');
+          });
+        }
+
+        // 添加数学曲线
+        if (step.math.addCurves) {
+          step.math.addCurves.forEach(curve => {
+            newMathCurves.set(curve.id, curve);
+            newVisibleMathIds.add(curve.id);
+            newMathAnims.set(curve.id, 'draw');
+          });
+        }
+
+        // 高亮数学对象
+        if (step.math.highlight) {
+          setHighlightedMathIds(new Set(step.math.highlight));
+        } else {
+          setHighlightedMathIds(new Set());
+        }
+
+        // 提交数学层状态
+        setMathPoints(newMathPoints);
+        setMathLines(newMathLines);
+        setMathCurves(newMathCurves);
+        setVisibleMathIds(newVisibleMathIds);
+        setMathAnimations(newMathAnims);
+
+        // 动画结束后清除动画状态
+        setTimeout(() => {
+          const curAnims = useStore.getState().mathAnimations;
+          const cleaned = new Map(curAnims);
+          // 只清除这一步添加的动画
+          if (step.math?.addPoints) step.math.addPoints.forEach(pt => cleaned.delete(pt.id));
+          if (step.math?.addLines) step.math.addLines.forEach(l => cleaned.delete(l.id || `${l.from}->${l.to}`));
+          if (step.math?.addCurves) step.math.addCurves.forEach(c => cleaned.delete(c.id));
+          setMathAnimations(cleaned);
+        }, animDuration);
+      }
+
+      // ===== 7. Timeline 事件 =====
 
       if (step.timeline && Array.isArray(step.timeline)) {
         step.timeline.forEach((event, index) => {
@@ -225,7 +399,7 @@ export const useGraphControls = (): GraphControlsReturn => {
       console.error('Error executing step:', error);
       return 0;
     }
-  }, [getCurrentState, setNodes, setEdges, setVisibleNodeIds, setVisibleEdgeIds, setNodeAnimations, setActiveTimelineEvents, setTimelineAnimations, setHighlightedNodes, setHighlightedEdges]);
+  }, [getCurrentState, setNodes, setEdges, setVisibleNodeIds, setVisibleEdgeIds, setNodeAnimations, setEdgeAnimations, setActiveTimelineEvents, setTimelineAnimations, setHighlightedNodes, setHighlightedEdges, setCoordVisible, setMathPoints, setMathLines, setMathCurves, setVisibleMathIds, setMathAnimations, setHighlightedMathIds]);
 
   useEffect(() => {
     if (!stepPlayerRef.current) {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DSL, Node, Edge, AnimationType, TimelineEvent, ChatMessage, Step } from '../types';
+import { DSL, Node, Edge, AnimationType, TimelineEvent, ChatMessage, Step, MathPoint, MathLine, MathCurve } from '../types';
 import { TTSState } from '../services/ttsService';
 
 // ==================== 类型定义 ====================
@@ -40,6 +40,9 @@ interface GraphState {
   nodeAnimations: Map<string, AnimationType>;
   setNodeAnimations: (animations: Map<string, AnimationType>) => void;
 
+  edgeAnimations: Map<string, AnimationType>;
+  setEdgeAnimations: (animations: Map<string, AnimationType>) => void;
+
   activeTimelineEvents: TimelineEvent[];
   setActiveTimelineEvents: (events: TimelineEvent[]) => void;
 
@@ -49,6 +52,35 @@ interface GraphState {
   // 显示文字（打字机效果）
   displayText: string;
   setDisplayText: (text: string) => void;
+
+  // ===== 数学画布层状态 =====
+  /** 坐标系是否已显示 */
+  coordVisible: boolean;
+  setCoordVisible: (visible: boolean) => void;
+
+  /** 数学点 */
+  mathPoints: Map<string, MathPoint>;
+  setMathPoints: (points: Map<string, MathPoint>) => void;
+
+  /** 数学线 */
+  mathLines: Map<string, MathLine>;
+  setMathLines: (lines: Map<string, MathLine>) => void;
+
+  /** 数学曲线 */
+  mathCurves: Map<string, MathCurve>;
+  setMathCurves: (curves: Map<string, MathCurve>) => void;
+
+  /** 可见的数学对象 ID */
+  visibleMathIds: Set<string>;
+  setVisibleMathIds: (ids: Set<string>) => void;
+
+  /** 数学对象动画状态 */
+  mathAnimations: Map<string, AnimationType>;
+  setMathAnimations: (anims: Map<string, AnimationType>) => void;
+
+  /** 高亮的数学对象 */
+  highlightedMathIds: Set<string>;
+  setHighlightedMathIds: (ids: Set<string>) => void;
 
   // 播放控制状态
   isStreaming: boolean;
@@ -138,9 +170,17 @@ const initialGraphState = {
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
   nodeAnimations: new Map<string, AnimationType>(),
+  edgeAnimations: new Map<string, AnimationType>(),
   activeTimelineEvents: [] as TimelineEvent[],
   timelineAnimations: new Map<string, { progress: number }>(),
   displayText: '',
+  coordVisible: false,
+  mathPoints: new Map<string, MathPoint>(),
+  mathLines: new Map<string, MathLine>(),
+  mathCurves: new Map<string, MathCurve>(),
+  visibleMathIds: new Set<string>(),
+  mathAnimations: new Map<string, AnimationType>(),
+  highlightedMathIds: new Set<string>(),
   isStreaming: false,
   isPaused: false,
   isAutoPlaying: false,
@@ -189,9 +229,18 @@ export const useStore = create<AppState>((set, get) => ({
   setHighlightedNodes: (ids) => set({ highlightedNodes: ids }),
   setHighlightedEdges: (ids) => set({ highlightedEdges: ids }),
   setNodeAnimations: (animations) => set({ nodeAnimations: animations }),
+  setEdgeAnimations: (animations) => set({ edgeAnimations: animations }),
   setActiveTimelineEvents: (events) => set({ activeTimelineEvents: events }),
   setTimelineAnimations: (animations) => set({ timelineAnimations: animations }),
   setDisplayText: (text) => set({ displayText: text }),
+
+  setCoordVisible: (visible) => set({ coordVisible: visible }),
+  setMathPoints: (points) => set({ mathPoints: points }),
+  setMathLines: (lines) => set({ mathLines: lines }),
+  setMathCurves: (curves) => set({ mathCurves: curves }),
+  setVisibleMathIds: (ids) => set({ visibleMathIds: ids }),
+  setMathAnimations: (anims) => set({ mathAnimations: anims }),
+  setHighlightedMathIds: (ids) => set({ highlightedMathIds: ids }),
 
   setIsStreaming: (streaming) => set({ isStreaming: streaming }),
   setIsPaused: (paused) => set({ isPaused: paused }),
@@ -222,9 +271,17 @@ export const useStore = create<AppState>((set, get) => ({
     highlightedNodes: new Set(),
     highlightedEdges: new Set(),
     nodeAnimations: new Map(),
+    edgeAnimations: new Map(),
     activeTimelineEvents: [],
     timelineAnimations: new Map(),
     displayText: '',
+    coordVisible: false,
+    mathPoints: new Map(),
+    mathLines: new Map(),
+    mathCurves: new Map(),
+    visibleMathIds: new Set(),
+    mathAnimations: new Map(),
+    highlightedMathIds: new Set(),
     pendingSteps: [],
     playedStepCount: 0,
     playMode: null
@@ -240,9 +297,17 @@ export const useStore = create<AppState>((set, get) => ({
     highlightedNodes: new Set(),
     highlightedEdges: new Set(),
     nodeAnimations: new Map(),
+    edgeAnimations: new Map(),
     activeTimelineEvents: [],
     timelineAnimations: new Map(),
     displayText: '',
+    coordVisible: false,
+    mathPoints: new Map(),
+    mathLines: new Map(),
+    mathCurves: new Map(),
+    visibleMathIds: new Set(),
+    mathAnimations: new Map(),
+    highlightedMathIds: new Set(),
     isStreaming: false,
     isPaused: false,
     isAutoPlaying: false,

@@ -75,5 +75,19 @@
     "placeholder": "Paste JSON code here...",
     "cancel": "Cancel",
     "render": "Render JSON"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "nickname": "Nickname",
+    "emailPlaceholder": "Enter your email",
+    "passwordPlaceholder": "Enter your password",
+    "nicknamePlaceholder": "Enter your nickname (optional)",
+    "hasAccount": "Already have an account? Login",
+    "noAccount": "Don't have an account? Register",
+    "loading": "Loading..."
   }
 }

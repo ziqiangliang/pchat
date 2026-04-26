@@ -14,7 +14,7 @@ export const CENTER_Y = CANVAS_HEIGHT / 2;
 export const TIMELINE_DURATION = 800;
 
 // 节点动画时长 (毫秒)
-export const NODE_ANIMATION_DURATION = 500;
+export const NODE_ANIMATION_DURATION = 800;
 
 // 步骤之间的基础间隔 (毫秒)
 export const STEP_BASE_INTERVAL = 500;
@@ -102,6 +102,18 @@ export const NODE_DEFAULT_OPACITY = 1;
 export const NODE_HIGHLIGHT_STROKE_WIDTH = 3;
 export const EDGE_HIGHLIGHT_STROKE_WIDTH = 3;
 
+// ==================== 坐标系配置 ====================
+// 坐标原点默认 SVG 位置
+export const COORD_DEFAULT_ORIGIN_X = 400;
+export const COORD_DEFAULT_ORIGIN_Y = 280;
+
+// 每单位像素数
+export const COORD_DEFAULT_UNIT_SIZE = 50;
+
+// 默认显示范围
+export const COORD_DEFAULT_RANGE_X: [number, number] = [-7, 7];
+export const COORD_DEFAULT_RANGE_Y: [number, number] = [-4, 4];
+
 // ==================== 布局优化器配置 ====================
 export const LAYOUT_OPTIMIZER_ENABLED = false;
 export const LAYOUT_MIN_NODE_DISTANCE = 60;
@@ -169,5 +181,12 @@ export const config = {
     minNodeDistance: LAYOUT_MIN_NODE_DISTANCE,
     boundaryPadding: LAYOUT_NODE_BOUNDARY_PADDING,
     maxIterations: LAYOUT_MAX_ITERATIONS
+  },
+  coordinateSystem: {
+    defaultOriginX: COORD_DEFAULT_ORIGIN_X,
+    defaultOriginY: COORD_DEFAULT_ORIGIN_Y,
+    defaultUnitSize: COORD_DEFAULT_UNIT_SIZE,
+    defaultRangeX: COORD_DEFAULT_RANGE_X,
+    defaultRangeY: COORD_DEFAULT_RANGE_Y
   }
 };

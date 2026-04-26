@@ -1,0 +1,493 @@
+/* ═══ Liquid Glass Login Modal — 2026 Standard ═══ */
+.login-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: overlayFadeIn var(--duration-fast) ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ═══ Login Modal Card ═══ */
+.login-modal {
+  position: relative;
+  background: 
+    linear-gradient(
+      175deg,
+      rgba(255, 255, 255, 0.26) 0%,
+      rgba(255, 255, 255, 0.18) 100%
+    );
+  backdrop-filter: var(--glass-blur-lg);
+  -webkit-backdrop-filter: var(--glass-blur-lg);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  width: 90%;
+  max-width: 380px;
+  box-shadow: var(--shadow-liquid);
+  animation: panelScaleIn var(--duration-normal) var(--spring-smooth);
+  transition: all var(--duration-smooth) var(--spring-smooth);
+  border: 0.5px solid var(--border-glass);
+}
+
+/* Inner light refraction - Multi-layer lighting */
+.login-modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.22) 30%,
+      rgba(255, 255, 255, 0.08) 60%,
+      transparent 85%
+    ),
+    linear-gradient(
+      var(--refraction-angle),
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.06) 40%,
+      rgba(255, 255, 255, 0.12) 75%,
+      rgba(255, 255, 255, 0.07) 100%
+    );
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Fresnel edge effect - Specular highlight border */
+.login-modal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: 
+    linear-gradient(
+      var(--refraction-angle),
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 255, 255, 0.38) 25%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.32) 75%,
+      rgba(255, 255, 255, 0.68) 100%
+    );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.login-modal:hover {
+  background: 
+    linear-gradient(
+      175deg,
+      rgba(255, 255, 255, 0.30) 0%,
+      rgba(255, 255, 255, 0.22) 100%
+    );
+  box-shadow: var(--shadow-liquid-hover);
+  transform: translateY(-3px);
+}
+
+.login-modal:hover::before {
+  opacity: 0.88;
+}
+
+@keyframes panelScaleIn {
+  from { 
+    transform: scale(0.965); 
+    opacity: 0; 
+  }
+  to { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+/* ═══ Header Section ═══ */
+.login-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 3;
+}
+
+.login-modal-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 640;
+  color: var(--text-primary);
+  letter-spacing: var(--text-tracking-tight);
+}
+
+/* ═══ Close Button - Glass style ═══ */
+.login-modal-close {
+  position: relative;
+  background: 
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.07) 100%
+    );
+  backdrop-filter: var(--glass-blur-xs);
+  -webkit-backdrop-filter: var(--glass-blur-xs);
+  border: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  border-radius: var(--radius-xs);
+  line-height: 1;
+  transition: all var(--duration-fast) var(--spring-smooth);
+  z-index: 4;
+  box-shadow: var(--shadow-contact);
+  border: 0.5px solid var(--border-glass);
+}
+
+/* Close button inner light */
+.login-modal-close::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.45) 0%,
+      rgba(255, 255, 255, 0.15) 50%,
+      transparent 100%
+    ),
+    linear-gradient(
+      var(--refraction-angle),
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Close button specular border */
+.login-modal-close::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0.5px;
+  background: var(--fresnel-edge);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.login-modal-close:hover {
+  background: 
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.19) 0%,
+      rgba(255, 255, 255, 0.11) 100%
+    );
+  color: var(--text-primary);
+  transform: scale(1.06);
+  box-shadow: var(--shadow-float);
+}
+
+.login-modal-close:hover::before {
+  opacity: 0.75;
+}
+
+.login-modal-close:active {
+  transform: scale(0.93);
+}
+
+/* ═══ Form Section ═══ */
+.login-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 3;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 520;
+  letter-spacing: var(--text-tracking-normal);
+}
+
+/* ═══ Form Input - Premium glass style ═══ */
+.form-group input {
+  padding: 13px 16px;
+  border: 0.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: all var(--duration-fast) var(--ease-in-out);
+  letter-spacing: var(--text-tracking-normal);
+  line-height: 1.5;
+}
+
+.form-group input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow:
+    0 0 0 3.5px rgba(0, 122, 255, 0.10),
+    0 2px 8px rgba(0, 122, 255, 0.08);
+  background: #fff;
+}
+
+/* ═══ Error Message ═══ */
+.login-error {
+  color: var(--accent-danger);
+  font-size: 13px;
+  text-align: center;
+  padding: 11px 15px;
+  background: rgba(255, 59, 48, 0.08);
+  border-radius: var(--radius-sm);
+  letter-spacing: var(--text-tracking-normal);
+  border: 0.5px solid rgba(255, 59, 48, 0.12);
+}
+
+/* ═══ Footer ═══ */
+.login-modal-footer {
+  text-align: center;
+  margin-top: 10px;
+  position: relative;
+  z-index: 3;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 520;
+  padding: 9px 14px;
+  letter-spacing: var(--text-tracking-normal);
+  transition: all var(--duration-fast) var(--ease-in-out);
+  border-radius: var(--radius-xs);
+}
+
+.btn-link:hover {
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-link:active {
+  transform: scale(0.97);
+}
+
+/* ═══════════════════════════════════════════
+   Dark Mode — System-aware
+   ═══════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  .login-modal {
+    background: 
+      linear-gradient(
+        175deg,
+        rgba(255, 255, 255, 0.055) 0%,
+        rgba(255, 255, 255, 0.03) 50%,
+        rgba(255, 255, 255, 0.04) 100%
+      );
+  }
+
+  .login-modal::before {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.14) 0%,
+        rgba(255, 255, 255, 0.06) 30%,
+        rgba(255, 255, 255, 0.025) 60%,
+        transparent 85%
+      ),
+      linear-gradient(
+        var(--refraction-angle),
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.02) 40%,
+        rgba(255, 255, 255, 0.04) 70%,
+        rgba(255, 255, 255, 0.025) 100%
+      );
+    opacity: 0.85;
+  }
+
+  .login-modal::after {
+    background: 
+      linear-gradient(
+        var(--refraction-angle),
+        rgba(255, 255, 255, 0.28) 0%,
+        rgba(255, 255, 255, 0.10) 25%,
+        rgba(255, 255, 255, 0.04) 50%,
+        rgba(255, 255, 255, 0.12) 75%,
+        rgba(255, 255, 255, 0.22) 100%
+      );
+  }
+
+  .login-modal:hover {
+    background: 
+      linear-gradient(
+        175deg,
+        rgba(255, 255, 255, 0.07) 0%,
+        rgba(255, 255, 255, 0.05) 100%
+      );
+  }
+
+  .login-modal-close {
+    background: 
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.03) 100%
+      );
+  }
+
+  .login-modal-close::before {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.14) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        transparent 100%
+      ),
+      linear-gradient(
+        var(--refraction-angle),
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.02) 50%,
+        rgba(255, 255, 255, 0.04) 100%
+      );
+    opacity: 0.6;
+  }
+
+  .login-modal-close::after {
+    background: 
+      linear-gradient(
+        var(--refraction-angle),
+        rgba(255, 255, 255, 0.22) 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.14) 100%
+      );
+  }
+
+  .form-group input {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.07);
+    color: var(--text-primary);
+  }
+
+  .form-group input:focus {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--accent-primary);
+  }
+
+  .btn-link:hover {
+    background: rgba(0, 122, 255, 0.15);
+  }
+}
+
+/* ═══ Manual dark mode toggle support ═══ */
+.dark .login-modal {
+  background: 
+    linear-gradient(
+      175deg,
+      rgba(255, 255, 255, 0.055) 0%,
+      rgba(255, 255, 255, 0.03) 50%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+}
+
+.dark .login-modal::before {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.06) 30%,
+      rgba(255, 255, 255, 0.025) 60%,
+      transparent 85%
+    ),
+    linear-gradient(
+      var(--refraction-angle),
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 40%,
+      rgba(255, 255, 255, 0.04) 70%,
+      rgba(255, 255, 255, 0.025) 100%
+    );
+  opacity: 0.85;
+}
+
+.dark .login-modal::after {
+  background: 
+    linear-gradient(
+      var(--refraction-angle),
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.10) 25%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.12) 75%,
+      rgba(255, 255, 255, 0.22) 100%
+    );
+}
+
+.dark .login-modal:hover {
+  background: 
+    linear-gradient(
+      175deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+}
+
+.dark .login-modal-close {
+  background: 
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+}
+
+.dark .form-group input {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+}
+
+.dark .form-group input:focus {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent-primary);
+}

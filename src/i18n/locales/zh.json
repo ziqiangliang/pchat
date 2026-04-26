@@ -75,5 +75,19 @@
     "placeholder": "在此粘贴JSON代码...",
     "cancel": "取消",
     "render": "渲染JSON"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出",
+    "email": "邮箱",
+    "password": "密码",
+    "nickname": "昵称",
+    "emailPlaceholder": "请输入邮箱",
+    "passwordPlaceholder": "请输入密码",
+    "nicknamePlaceholder": "请输入昵称（可选）",
+    "hasAccount": "已有账号？登录",
+    "noAccount": "没有账号？注册",
+    "loading": "处理中..."
   }
 }

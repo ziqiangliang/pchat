@@ -6,38 +6,35 @@ DSL (Domain-Specific Language) 是 PChat 项目中用于描述可视化图形和
 
 ## 2. 核心结构
 
+系统支持**双层画布**架构，两层可以在每个步骤中独立或同时操作：
+
+- **节点层**：概念框、流程框、文字标注（像素坐标 0\~800, 0\~500）
+- **数学层**：坐标系上的点、线段、直线、曲线（数学坐标，Y 向上为正）
+
 ```json
 {
   "title": "标题",
   "meta": { "domain": "领域标签" },
-  "nodes": [
-    {
-      "id": "节点ID",
-      "label": "显示文字",
-      "type": "节点类型",
-      "x": 100,
-      "y": 100,
-      "style": { "color": "文字颜色", "fill": "背景颜色", "border": "边框颜色" }
-    }
-  ],
-  "edges": [
-    {
-      "from": "起始节点ID",
-      "to": "目标节点ID",
-      "label": "连线标签（可选）",
-      "type": "连线类型"
-    }
-  ],
-  "layoutHints": {
-    "type": "布局类型",
-    "geometryType": "几何类型（可选）",
-    "constraints": [ { "type": "约束类型", "nodes": ["节点ID列表"] } ]
+  "layoutHints": { "type": "布局类型" },
+  "mathCanvas": {
+    "rangeX": [-6, 6],
+    "rangeY": [-5, 5],
+    "showGrid": true
   },
   "steps": [
     {
       "text": "讲解文字",
-      "add": [{ "id": "节点ID", "label": "文字", "type": "节点类型" }],
+      "showCoord": true,
+      "math": {
+        "addPoints": [{ "id": "A", "label": "A(2,5)", "x": 2, "y": 5 }],
+        "addLines": [{ "from": "A", "to": "B", "extend": true }],
+        "addCurves": [{ "id": "c1", "fn": "x*x", "range": [-3,3] }],
+        "removePoints": ["ID"],
+        "removeLines": ["ID"]
+      },
+      "add": [{ "id": "节点ID", "label": "文字", "type": "节点类型", "x": 100, "y": 100 }],
       "connect": [{ "from": "ID", "to": "ID", "label": "标签" }],
+      "remove": ["节点ID"],
       "highlight": ["节点ID"]
     }
   ]
@@ -109,7 +106,65 @@ DSL (Domain-Specific Language) 是 PChat 项目中用于描述可视化图形和
 | network | 网络布局 | 关系图、依赖图、概念图 |
 | data | 数据布局 | 图表、数据展示 |
 
-### 5.1 布局约束 (Constraint)
+### 5.1 数学画布 (MathCanvas)
+
+数学画布是独立于节点层的坐标系渲染层。在 DSL 顶层配置 `mathCanvas` 后，通过每个 Step 的 `showCoord` 和 `math` 操作逐步绘制。
+
+```json
+"mathCanvas": {
+  "rangeX": [-6, 6],
+  "rangeY": [-5, 5],
+  "showGrid": true,
+  "showLabels": true,
+  "unitSize": 50,
+  "xLabel": "x",
+  "yLabel": "y"
+}
+```
+
+| 属性 | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| rangeX | [min,max] | [-7, 7] | X 轴显示范围（数学坐标） |
+| rangeY | [min,max] | [-4, 4] | Y 轴显示范围，**Y 向上为正** |
+| showGrid | boolean | true | 是否显示网格线 |
+| showLabels | boolean | true | 是否显示刻度标签 |
+| unitSize | number | 50 | 每数学单位对应的像素数 |
+| origin | {x,y} | {400,280} | 原点在 SVG 画布中的像素位置 |
+| xLabel | string | "x" | X 轴标签 |
+| yLabel | string | "y" | Y 轴标签 |
+
+### 5.1.1 数学操作 (MathOperation)
+
+在 Step 的 `math` 字段中使用：
+
+**addPoints** - 在坐标系上标点
+```json
+{ "id": "A", "label": "A(2,5)", "x": 2, "y": 5, "color": "#e74c3c", "radius": 5 }
+```
+
+**addLines** - 画线段或直线
+```json
+{ "from": "A", "to": "B", "label": "y=3x-1", "extend": true, "color": "#3498db", "dashed": false }
+```
+`extend: true` 将线段延伸到坐标系边界，绘制完整直线。
+
+**addCurves** - 画函数曲线（预留扩展）
+```json
+{ "id": "c1", "fn": "x*x", "range": [-3, 3], "label": "y=x²", "color": "#9b59b6" }
+```
+`fn` 为 JavaScript 表达式，变量为 x。支持 `Math.sin(x)`, `x*x`, `1/x` 等。
+
+**removePoints / removeLines / removeCurves** - 移除数学对象
+```json
+"removePoints": ["A"], "removeLines": ["A->B"]
+```
+
+**highlight** - 高亮数学对象
+```json
+"highlight": ["A", "A->B"]
+```
+
+### 5.2 布局约束 (Constraint)
 
 | 类型 | 描述 | 适用场景 |
 |------|------|----------|
@@ -132,12 +187,14 @@ DSL (Domain-Specific Language) 是 PChat 项目中用于描述可视化图形和
 | 属性 | 类型 | 必需 | 描述 |
 |------|------|------|------|
 | text | string | 是 | 讲解文字 |
-| add | Node[] | 否 | 添加节点 |
-| connect | Edge[] | 否 | 连接节点 |
+| add | Node[] | 否 | 添加节点（节点层，像素坐标） |
+| connect | Edge[] | 否 | 连接节点（节点层） |
 | remove | string[] | 否 | 移除节点 |
 | highlight | string[] | 否 | 高亮节点 |
 | animate | object | 否 | 动画配置 {type, target, duration} |
 | timeline | TimelineEvent[] | 否 | 时间线事件 |
+| showCoord | boolean | 否 | 显示坐标系（数学层，一般第一步使用） |
+| math | MathOperation | 否 | 数学层操作（addPoints/addLines/addCurves 等） |
 
 ### 6.2 动画类型 (AnimationType)
 

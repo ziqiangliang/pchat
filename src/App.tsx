@@ -1,22 +1,31 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import { useStore } from './stores/store';
+import { useAuthStore } from './stores/authStore';
 import { DSL, Step, ChatMessage } from './types';
 import { GraphCanvas } from './components/GraphCanvas';
 import { ChatInterface } from './components/ChatInterface';
 import { PlaybackControls } from './components/PlaybackControls';
 import { DraggablePlaybackControls } from './components/DraggablePlaybackControls';
 import { MobileBallControl } from './components/MobileBallControl';
+import { LoginModal } from './components/LoginModal';
 import { ttsService } from './services/ttsService';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
-import { DSL_SYSTEM_PROMPT } from './config/prompts';
+import { API_ENDPOINTS, getAuthHeaders } from './config/api';
 import './index.css';
 
 function App() {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const { isAuthenticated, checkAuth, user } = useAuthStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const userInput = useStore(state => state.userInput);
   const setUserInput = useStore(state => state.setUserInput);
@@ -40,6 +49,7 @@ function App() {
   const highlightedNodes = useStore(state => state.highlightedNodes);
   const highlightedEdges = useStore(state => state.highlightedEdges);
   const nodeAnimations = useStore(state => state.nodeAnimations);
+  const edgeAnimations = useStore(state => state.edgeAnimations);
   const activeTimelineEvents = useStore(state => state.activeTimelineEvents);
   const timelineAnimations = useStore(state => state.timelineAnimations);
   const displayText = useStore(state => state.displayText);
@@ -48,6 +58,13 @@ function App() {
   const isPaused = useStore(state => state.isPaused);
   const setIsPaused = useStore(state => state.setIsPaused);
   const setPlaybackSpeed = useStore(state => state.setPlaybackSpeed);
+  const coordVisible = useStore(state => state.coordVisible);
+  const mathPoints = useStore(state => state.mathPoints);
+  const mathLines = useStore(state => state.mathLines);
+  const mathCurves = useStore(state => state.mathCurves);
+  const visibleMathIds = useStore(state => state.visibleMathIds);
+  const mathAnimations = useStore(state => state.mathAnimations);
+  const highlightedMathIds = useStore(state => state.highlightedMathIds);
   const [volume, setVolume] = useState(1);
 
   const {
@@ -108,10 +125,8 @@ function App() {
   const handleAIGenerate = useCallback(async () => {
     if (!userInput.trim() || isLoading) return;
 
-    const deepseekApiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-
-    if (!deepseekApiKey) {
-      alert(t('chat.apiKeyRequired'));
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
       return;
     }
 
@@ -127,38 +142,19 @@ function App() {
     setIsLoading(true);
 
     try {
-      const deepseekBaseUrl = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
-
-      const response = await fetch(`${deepseekBaseUrl}/chat/completions`, {
+      const response = await fetch(API_ENDPOINTS.chat, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${deepseekApiKey}`
+          ...(getAuthHeaders() as Record<string, string>)
         },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          stream: true,
-          messages: [
-            {
-              role: 'system',
-              content: DSL_SYSTEM_PROMPT.replace(
-                '{{LANGUAGE_CONSTRAINT}}',
-                i18n.language === 'en' ? '\n必须用英文回答所有 text 字段的内容' : ''
-              )
-            },
-            ...(Array.isArray(chatHistory) ? chatHistory : []).map(msg => ({
-              role: msg.role,
-              content: msg.content
-            })),
-            {
-              role: 'user',
-              content: userInput
-            }
-          ]
-        })
+        body: JSON.stringify({ message: userInput })
       });
 
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('今日使用次数已达上限，请升级到付费版');
+        }
         throw new Error(`API request failed: ${response.status}`);
       }
 
@@ -169,12 +165,6 @@ function App() {
         let isDslParsed = false;
         let assistantMessageId: string | null = null;
         let lastParsedStepsCount = 0;
-        let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
-
-        const clearPendingTimeouts = () => {
-          pendingTimeouts.forEach(id => clearTimeout(id));
-          pendingTimeouts = [];
-        };
 
         while (true) {
           const { done, value } = await reader.read();
@@ -190,8 +180,7 @@ function App() {
                 break;
               }
               try {
-                const chunkData = JSON.parse(data);
-                const content = chunkData.choices[0]?.delta?.content || '';
+                const content = data;
                 if (content) {
                     if (!assistantMessageId) {
                       actualContent = content;
@@ -206,7 +195,7 @@ function App() {
                     } else {
                       actualContent += content;
                       const { completedSteps, partialStep } = extractStreamingSteps(actualContent);
-                      const displayText = [
+                      const displayTextContent = [
                         ...completedSteps.map((s: any) => s.text),
                         ...(partialStep ? [(partialStep as any).text] : [])
                       ].join('\n');
@@ -219,7 +208,7 @@ function App() {
                           updatedHistory[assistantMsgIndex] = {
                             ...updatedHistory[assistantMsgIndex],
                             content: actualContent,
-                            displayContent: displayText
+                            displayContent: displayTextContent
                           };
                         }
                         return updatedHistory;
@@ -252,7 +241,6 @@ function App() {
                         const state = useStore.getState();
                         if (state.playedStepCount >= completedSteps.length) {
                           isDslParsed = true;
-                          clearPendingTimeouts();
                         }
                       }
                     }
@@ -264,13 +252,12 @@ function App() {
           }
         }
 
-        clearPendingTimeouts();
         if (!isDslParsed && actualContent) {
           const finalResult = safeParseDSL(actualContent);
           if (finalResult.success && finalResult.data) {
             setDsl(finalResult.data);
 
-            const displayText = finalResult.data.steps.map((s: any) => s.text).join('\n');
+            const displayTextContent = finalResult.data.steps.map((s: any) => s.text).join('\n');
             if (assistantMessageId) {
               setChatHistory(prev => {
                 const updatedHistory = [...prev];
@@ -280,7 +267,7 @@ function App() {
                 if (assistantMsgIndex !== -1) {
                   updatedHistory[assistantMsgIndex] = {
                     ...updatedHistory[assistantMsgIndex],
-                    displayContent: displayText
+                    displayContent: displayTextContent
                   };
                 }
                 return updatedHistory;
@@ -301,18 +288,18 @@ function App() {
       setIsLoading(false);
       setLoadingStartTime(null);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
       const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: t('chat.error'),
+        content: error.message || t('chat.error'),
         timestamp: Date.now()
       };
       setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage, errorMessage]);
       setIsLoading(false);
       setLoadingStartTime(null);
     }
-  }, [userInput, isLoading, chatHistory, setDsl, setChatHistory, setUserInput, setIsLoading, setLoadingStartTime, stepPlayer]);
+  }, [userInput, isLoading, isAuthenticated, setDsl, setChatHistory, setUserInput, setIsLoading, setLoadingStartTime, stepPlayer]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -335,6 +322,8 @@ function App() {
 
   return (
     <div className={`app ${isDarkMode ? 'dark' : ''}`}>
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
       <header className="header">
         <div className="header-left">
           <button
@@ -357,6 +346,24 @@ function App() {
         </div>
 
         <div className="header-actions">
+          {!isAuthenticated ? (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="btn btn-primary"
+            >
+              {t('auth.login')}
+            </button>
+          ) : (
+            <span className="user-info">
+              {user?.nickname || user?.email}
+              <button
+                onClick={() => useAuthStore.getState().logout()}
+                className="btn btn-ghost"
+              >
+                {t('auth.logout')}
+              </button>
+            </span>
+          )}
           {import.meta.env.DEV && (
             <button
               onClick={() => setShowJsonPanel(!showJsonPanel)}
@@ -386,6 +393,17 @@ function App() {
             <button className="mobile-menu-close" onClick={closeMobileMenu}>✕</button>
           </div>
           <div className="mobile-menu-items">
+            {!isAuthenticated ? (
+              <button className="mobile-menu-item" onClick={() => { setShowLoginModal(true); closeMobileMenu(); }}>
+                <span className="mobile-menu-item-icon">🔑</span>
+                <span className="mobile-menu-item-text">{t('auth.login')}</span>
+              </button>
+            ) : (
+              <button className="mobile-menu-item" onClick={() => { useAuthStore.getState().logout(); closeMobileMenu(); }}>
+                <span className="mobile-menu-item-icon">🚪</span>
+                <span className="mobile-menu-item-text">{t('auth.logout')}</span>
+              </button>
+            )}
             {import.meta.env.DEV && (
               <button className="mobile-menu-item" onClick={() => { setShowJsonPanel(true); closeMobileMenu(); }}>
                 <span className="mobile-menu-item-icon">🗂️</span>
@@ -442,10 +460,18 @@ function App() {
               highlightedNodes={highlightedNodes}
               highlightedEdges={highlightedEdges}
               nodeAnimations={nodeAnimations}
+              edgeAnimations={edgeAnimations}
               activeTimelineEvents={activeTimelineEvents}
               timelineAnimations={timelineAnimations}
               currentText={displayText}
               currentStep={currentStep}
+              coordVisible={coordVisible}
+              mathPoints={mathPoints}
+              mathLines={mathLines}
+              mathCurves={mathCurves}
+              visibleMathIds={visibleMathIds}
+              mathAnimations={mathAnimations}
+              highlightedMathIds={highlightedMathIds}
             />
 
             {(dsl || isLoading) && dsl && dsl.steps && dsl.steps.length > 0 && (
