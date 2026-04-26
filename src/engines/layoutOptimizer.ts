@@ -8,7 +8,13 @@ import {
   LAYOUT_MAX_ITERATIONS,
   NODE_MIN_WIDTH,
   NODE_MIN_HEIGHT,
-  DEFAULT_NODE_RADIUS
+  NODE_MAX_WIDTH,
+  NODE_MAX_HEIGHT,
+  DEFAULT_NODE_RADIUS,
+  NODE_PADDING,
+  NODE_LINE_HEIGHT_RATIO,
+  NODE_CHAR_WIDTH_CHINESE,
+  NODE_CHAR_WIDTH_ENGLISH
 } from '../config';
 
 export interface OptimizerConfig {
@@ -131,6 +137,27 @@ export class LayoutOptimizer {
     if (node.type === 'vertex' || node.type === 'dataPoint' || node.type === 'event') {
       return DEFAULT_NODE_RADIUS * 2;
     }
+
+    // ✅ 增强版：基于 label 长度动态计算宽度
+    if (node.label && typeof node.label === 'string') {
+      const label = node.label.trim();
+      const charCount = label.length;
+
+      // 统计中文字符数（用于精确计算）
+      const chineseChars = (label.match(/[\u4e00-\u9fa5]/g) || []).length;
+      const otherChars = charCount - chineseChars;
+
+      // 估算文本宽度：中文每个字符约14px，英文/数字/符号每个约7px
+      const estimatedWidth = Math.ceil(
+        chineseChars * NODE_CHAR_WIDTH_CHINESE * 12 +
+        otherChars * NODE_CHAR_WIDTH_ENGLISH * 12 +
+        NODE_PADDING * 2
+      );
+
+      // 确保在合理范围内
+      return Math.max(NODE_MIN_WIDTH, Math.min(estimatedWidth, NODE_MAX_WIDTH));
+    }
+
     return NODE_MIN_WIDTH;
   }
 
@@ -140,6 +167,24 @@ export class LayoutOptimizer {
     if (node.type === 'vertex' || node.type === 'dataPoint' || node.type === 'event') {
       return DEFAULT_NODE_RADIUS * 2;
     }
+
+    // ✅ 增强版：基于 label 行数动态计算高度
+    if (node.label && typeof node.label === 'string') {
+      const label = node.label.trim();
+
+      // 计算换行符数量
+      const lineBreaks = (label.match(/\n/g) || []).length;
+      const totalLines = lineBreaks + 1;
+
+      // 基础高度 + 每行的行高
+      const estimatedHeight = Math.ceil(
+        NODE_MIN_HEIGHT + (totalLines - 1) * NODE_LINE_HEIGHT_RATIO * 14
+      );
+
+      // 确保在合理范围内
+      return Math.max(NODE_MIN_HEIGHT, Math.min(estimatedHeight, NODE_MAX_HEIGHT));
+    }
+
     return NODE_MIN_HEIGHT;
   }
 }

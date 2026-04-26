@@ -211,7 +211,23 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       return posMap;
     }
 
-    // 节点层始终使用 layoutOptimizer（像素坐标）
+    // ✅ 智能预处理：检测并修复缺失坐标的节点
+    const hasMathCanvas = dsl?.mathCanvas !== undefined;
+    allNodes.forEach((node, index) => {
+      if (node.x === undefined || node.y === null || node.y === undefined) {
+        // 对于有坐标系的题目，自动将节点放到右侧区域
+        if (hasMathCanvas) {
+          node.x = 620 + (index % 3) * 50; // 右侧区域 x:620~770
+          node.y = 80 + Math.floor(index / 3) * 100; // 垂直分布 y:80~450
+        } else {
+          // 无坐标系时使用默认布局
+          node.x = 100 + (index % 4) * 160; // 水平分布
+          node.y = 80 + Math.floor(index / 4) * 120; // 垂直分布
+        }
+      }
+    });
+
+    // 节点层始终使用 layoutOptimizer（像素坐标）- 现已启用！
     const optimizedPositions = layoutOptimizer.optimize(allNodes, edges);
     optimizedPositions.forEach((pos, id) => {
       posMap.set(id, pos);
@@ -239,7 +255,7 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       });
 
     return posMap;
-  }, [nodesKey, edgesKey, nodes, edges]);
+  }, [nodesKey, edgesKey, nodes, edges, dsl?.mathCanvas]);
 
   /** 渲染坐标系网格+轴 */
   const renderCoordinateSystem = useCallback(() => {

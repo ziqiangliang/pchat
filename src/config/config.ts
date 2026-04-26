@@ -115,10 +115,10 @@ export const COORD_DEFAULT_RANGE_X: [number, number] = [-7, 7];
 export const COORD_DEFAULT_RANGE_Y: [number, number] = [-4, 4];
 
 // ==================== 布局优化器配置 ====================
-export const LAYOUT_OPTIMIZER_ENABLED = false;
-export const LAYOUT_MIN_NODE_DISTANCE = 60;
-export const LAYOUT_NODE_BOUNDARY_PADDING = 30;
-export const LAYOUT_MAX_ITERATIONS = 30;
+export const LAYOUT_OPTIMIZER_ENABLED = true;  // ✅ 启用碰撞检测和防重叠
+export const LAYOUT_MIN_NODE_DISTANCE = 90;    // 增加最小间距（原60→90，提升呼吸感）
+export const LAYOUT_NODE_BOUNDARY_PADDING = 35; // 增加边界保护（原30→35）
+export const LAYOUT_MAX_ITERATIONS = 50;       // 增加迭代次数（原30→50，确保充分分离）
 
 // 保留旧配置用于向后兼容（deprecated）
 export const DEFAULT_NODE_LABEL_PADDING = 40;
