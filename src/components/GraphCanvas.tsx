@@ -665,9 +665,9 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           </>
         )}
 
-        {/* ✅ 增强版文本渲染：支持推导面板的多行文本 */}
+        {/* ✅ 增强版文本渲染：支持推导面板的多行文本 + 逐行reveal动画 */}
         {label.includes('\n') ? (
-          // 推导面板模式：多行文本渲染
+          // 推导面板模式：多行文本渲染 + 渐进式显示
           <text
             x={pos.x - width / 2 + 16}  // 左侧内边距16px
             y={pos.y - height / 2 + 24}  // 顶部内边距24px
@@ -678,15 +678,25 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
             letterSpacing="-0.01em"
             style={{ ...textAnimStyle, whiteSpace: 'pre' }}
           >
-            {label.split('\n').map((line, index) => (
-              <tspan
-                key={index}
-                x={pos.x - width / 2 + 16}
-                dy={index === 0 ? 0 : ((customStyle as any).fontSize || style.fontSize) * NODE_LINE_HEIGHT_RATIO * 1.1}
-              >
-                {line}
-              </tspan>
-            ))}
+            {label.split('\n').map((line, index) => {
+              // ✨ 核心创新：逐行延迟动画（Line-by-line Reveal）
+              const lineDelay = index * 400; // 每行延迟400ms
+              const lineDuration = 0.5; // 每行动画时长0.5秒
+
+              return (
+                <tspan
+                  key={index}
+                  x={pos.x - width / 2 + 16}
+                  dy={index === 0 ? 0 : ((customStyle as any).fontSize || style.fontSize) * NODE_LINE_HEIGHT_RATIO * 1.1}
+                  opacity={needsAnimation ? 0 : undefined}
+                  style={needsAnimation ? {
+                    animation: `nodeTextIn ${lineDuration}s cubic-bezier(0.22, 1, 0.36, 1) ${lineDelay / 1000}s forwards`
+                  } : {}}
+                >
+                  {line}
+                </tspan>
+              );
+            })}
           </text>
         ) : (
           // 普通模式：单行文本（原有逻辑）
