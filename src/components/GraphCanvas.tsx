@@ -419,6 +419,13 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
     if (!visibleMathIds.has(curve.id) || !dsl?.mathCanvas) return null;
 
     const mc = dsl.mathCanvas;
+    
+    // 防御性检查: 确保 curve.range 存在且是有效数组
+    if (!curve.range || !Array.isArray(curve.range) || curve.range.length < 2) {
+      console.warn(`MathCurve "${curve.id}" 缺少有效的 range 属性，跳过渲染`);
+      return null;
+    }
+    
     const [rangeMin, rangeMax] = curve.range;
     const color = curve.color ?? '#9b59b6';
     const width = curve.width ?? 2;
