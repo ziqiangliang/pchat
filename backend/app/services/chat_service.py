@@ -99,14 +99,45 @@ Layer 1 特征提取(识别关键点):
 
 Layer 2 代数形式化(公式推导):
 - 将视觉特征转化为代数表达式
-- 【重要】长公式必须拆分为多个annotation节点逐步展示!
-- 错误示例: label写超长公式"y=ax^2+bx+c=a(x+b/2a)^2+(4ac-b^2)/4a"
-- 正确示例: 拆成多步
-  Step N:   label="1. 原式: y = x^2 - 4x + 3"
-  Step N+1: label="2. 配方: y = (x^2-4x+4) - 4 + 3"
-  Step N+2: label="3. 整理: y = (x-2)^2 - 1"
-  Step N+3: label="结论: 顶点(2,-1)"
-- 多个公式节点垂直排列(y间距50-60px)，用connect箭头连接形成推导链
+- 【核心创新】使用"推导面板(Derivation Panel)"模式展示完整推导过程!
+- 【重要】不要将每一步公式拆成独立小节点，而是用单个大型annotation面板包含所有步骤!
+
+【推导面板模式 - 公式推导的最佳实践】
+
+❌ 错误方式(碎片化):
+Step N:   add { label:"1. y = x^2 - 4x + 3", ... }
+Step N+1: add { label:"2. y = (x^2-4x+4) - 4 + 3", ... }
+Step N+2: add { label:"3. y = (x-2)^2 - 1", ... }
+// 结果: 多个小框+复杂连线=混乱
+
+✅ 正确方式(推导面板):
+add {
+  "id": "derivationPanel",
+  "type": "annotation",
+  "label": "📝 推导过程:\n\n① y = x² - 4x + 3        (原式)\n   ↓ 配方\n② y = (x² - 4x + 4) - 4 + 3\n   ↓ 整理\n③ y = (x - 2)² - 1        (顶点式)\n   ↓ 读出顶点\n🌟 结论: 顶点坐标 (2, -1)",
+  "x": 540,
+  "y": 100,
+  "size": { "width": 260, "height": 240 },
+  "style": {
+    "fill": "#fef9e7",
+    "border": "#f39c12",
+    "fontSize": 13,
+    "fontWeight": "500"
+  }
+}
+// 结果: 一个大框=整洁、清晰、有整体感！
+
+推导面板格式规范:
+- 使用 \n 换行分隔每个步骤
+- 用箭头符号(↓ → ⇓)表示转换关系
+- 步骤编号: ①②③④ 或 Step1/2/3/4
+- 关键结论用emoji强调(🌟 ✅ 📌)
+- 面板尺寸建议: width 240-280px, height 根据行数调整(每行约25px)
+- 推荐位置: 坐标系题目放在右侧(x:540~770)
+- 背景色推荐: 
+  * 数学推导: "#fef9e7"(浅黄) + border "#f39c12"(橙色)
+  * 代码实现: "#f0f9ff"(浅蓝) + border:"#3498db"(蓝色)
+  * 重要结论: "#fff8e1"(金黄) + border:"#FFD700"(金色)
 
 Layer 3 代码实现(Math-Code双轨制):
 - 展示数学概念的编程实现
@@ -176,21 +207,38 @@ Step 3: { "remove":["pointA"] }  // pointA仍被edgeAB引用! 应先删edgeAB再
 
 【数学表达式排版规范】
 
-分层展示原则:
-- 长公式必须拆分为多个annotation节点逐步展示(见Layer 2示例)
-- 不要将复杂推导塞入单个label
+【重要】两种展示模式:
 
-对齐与格式:
-- 公式节点垂直排列，等号位置对齐
-- 使用步骤编号: ①②③④ 或 Step1/2/3/4
-- 支持特殊符号: 上标(x^2,x^3)、下标(x_1,x_2)、希腊字母(alpha,beta,gamma,Delta,pi)、运算符(+-,sqrt,infty,approx,leq,geq,neq,int)
+模式1: 推导面板(推荐用于公式推导):
+- 将完整推导过程放入单个大型annotation节点
+- 使用 \n 换行，每行一个步骤
+- 优点: 整洁、整体感强、无连线混乱
+- 适用: Layer 2代数形式化、公式证明、代码实现
 
-字体层级:
-- 标题: fontSize 16, fontWeight 600
-- 公式主体: fontSize 13-14, fontWeight 500
-- 下标上标: fontSize 10-11, fontWeight 400
-- 注释说明: fontSize 11-12, fontWeight 400
-- 代码关键字: fontSize 10-11, fontWeight 600
+模式2: 分步节点(仅用于简单说明):
+- 每个概念用独立小节点
+- 仅在非推导类内容使用(如定义、注释)
+- 节点数控制在3个以内
+
+推导面板格式细节:
+- 标题行: "📝 推导过程:" 或 "💻 代码实现:"
+- 空行: 使用 \n\n 分隔标题和内容
+- 步骤格式: "① 公式内容        (说明)"
+- 转换箭头: 单独一行 "   ↓ 操作名称"
+- 结论行: "🌟 结论: xxx" 或 "✅ 结果: xxx"
+- 对齐技巧: 使用空格对齐等号或关键符号
+
+特殊符号支持:
+- 上标: x^2, x^3 (或使用Unicode: x², x³)
+- 下标: x_1, x_2 (或使用Unicode: x₁, x₂)
+- 希腊字母: alpha, beta, gamma, Delta, pi (或Unicode: α, β, γ, Δ, π)
+- 运算符: +-, sqrt, infty, approx, leq, geq, neq, int (或Unicode: ±, √, ∞, ≈, ≤, ≥, ≠, ∫)
+
+字体层级(在style中设置):
+- 面板标题: fontSize 14-15, fontWeight 600
+- 步骤编号: fontSize 13, fontWeight 600
+- 公式主体: fontSize 13, fontWeight 500
+- 说明文字: fontSize 11-12, fontWeight 400
 
 【用户分层适配】
 

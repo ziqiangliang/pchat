@@ -665,18 +665,44 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
           </>
         )}
 
-        <text
-          x={pos.x}
-          y={pos.y + style.fontSize / 3}
-          textAnchor="middle"
-          fontSize={style.fontSize}
-          fontWeight={isHighlighted ? '600' : style.fontWeight}
-          fill={textColor}
-          letterSpacing="-0.01em"
-          style={textAnimStyle}
-        >
-          {label}
-        </text>
+        {/* ✅ 增强版文本渲染：支持推导面板的多行文本 */}
+        {label.includes('\n') ? (
+          // 推导面板模式：多行文本渲染
+          <text
+            x={pos.x - width / 2 + 16}  // 左侧内边距16px
+            y={pos.y - height / 2 + 24}  // 顶部内边距24px
+            textAnchor="start"
+            fontSize={(customStyle as any).fontSize || style.fontSize}
+            fontWeight={(customStyle as any).fontWeight || (isHighlighted ? '600' : style.fontWeight)}
+            fill={textColor}
+            letterSpacing="-0.01em"
+            style={{ ...textAnimStyle, whiteSpace: 'pre' }}
+          >
+            {label.split('\n').map((line, index) => (
+              <tspan
+                key={index}
+                x={pos.x - width / 2 + 16}
+                dy={index === 0 ? 0 : ((customStyle as any).fontSize || style.fontSize) * NODE_LINE_HEIGHT_RATIO * 1.1}
+              >
+                {line}
+              </tspan>
+            ))}
+          </text>
+        ) : (
+          // 普通模式：单行文本（原有逻辑）
+          <text
+            x={pos.x}
+            y={pos.y + style.fontSize / 3}
+            textAnchor="middle"
+            fontSize={style.fontSize}
+            fontWeight={isHighlighted ? '600' : style.fontWeight}
+            fill={textColor}
+            letterSpacing="-0.01em"
+            style={textAnimStyle}
+          >
+            {label}
+          </text>
+        )}
       </g>
     );
   }, [highlightedNodes, nodeAnimations]);
