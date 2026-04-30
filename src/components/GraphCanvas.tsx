@@ -211,24 +211,31 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       return posMap;
     }
 
-    // ✅ 智能预处理：检测并修复缺失坐标的节点
+    // ✅ 智能预处理：检测并修复缺失坐标的节点（使用副本，不修改原对象）
     const hasMathCanvas = dsl?.mathCanvas !== undefined;
-    allNodes.forEach((node, index) => {
-      if (node.x === undefined || node.y === null || node.y === undefined) {
-        // 对于有坐标系的题目，自动将节点放到右侧区域
-        if (hasMathCanvas) {
-          node.x = 620 + (index % 3) * 50; // 右侧区域 x:620~770
-          node.y = 80 + Math.floor(index / 3) * 100; // 垂直分布 y:80~450
-        } else {
-          // 无坐标系时使用默认布局
-          node.x = 100 + (index % 4) * 160; // 水平分布
-          node.y = 80 + Math.floor(index / 4) * 120; // 垂直分布
-        }
+    
+    // 创建副本以避免副作用（关键修复：不能直接修改nodes引用的对象）
+    const processedNodes = allNodes.map((node, index) => {
+      if (node.x !== undefined && node.y !== null && node.y !== undefined) {
+        return node;  // 有坐标的直接返回原对象
       }
+      
+      // 缺失坐标的返回修正后的新对象
+      const fixedNode = { ...node };
+      if (hasMathCanvas) {
+        // 对于有坐标系的题目，自动将节点放到右侧区域
+        fixedNode.x = 620 + (index % 3) * 50;
+        fixedNode.y = 80 + Math.floor(index / 3) * 100;
+      } else {
+        // 无坐标系时使用默认布局
+        fixedNode.x = 100 + (index % 4) * 160;
+        fixedNode.y = 80 + Math.floor(index / 4) * 120;
+      }
+      return fixedNode;
     });
 
     // 节点层始终使用 layoutOptimizer（像素坐标）- 现已启用！
-    const optimizedPositions = layoutOptimizer.optimize(allNodes, edges);
+    const optimizedPositions = layoutOptimizer.optimize(processedNodes, edges);
     optimizedPositions.forEach((pos, id) => {
       posMap.set(id, pos);
     });
