@@ -92,12 +92,9 @@ export function validateDSL(json: unknown): { valid: boolean; errors: string[] }
       errors.push('meta 必须是对象');
     } else {
       const meta = dsl.meta as Record<string, unknown>;
-      // domain 必须是标准值
-      if (meta.domain) {
-        const validDomains = ['mathematics', 'software_engineering', 'physics', 'general'];
-        if (!validDomains.includes(meta.domain as string)) {
-          errors.push(`domain 必须是以下值之一: ${validDomains.join(', ')}`);
-        }
+      // domain 可以是任意描述性字符串，不做严格枚举限制
+      if (meta.domain && typeof meta.domain !== 'string') {
+        errors.push('domain 必须是字符串');
       }
     }
   }
@@ -260,8 +257,15 @@ function extractPartialSteps(content: string): {
   let remainingContent = content;
   let lastParsedIndex = 0;
 
-  // 查找 steps 数组的起始位置
-  const stepsArrayStart = content.indexOf('[');
+  // 查找 "steps": [ 的位置（而不是随便一个 [）
+  const stepsKeyPattern = /"steps"\s*:\s*\[/;
+  const stepsMatch = content.match(stepsKeyPattern);
+  if (!stepsMatch) {
+    return { completedSteps, partialStep, remainingContent };
+  }
+
+  // 找到 steps 数组的起始位置（[ 的位置）
+  const stepsArrayStart = content.indexOf('[', stepsMatch.index!);
   if (stepsArrayStart === -1) {
     return { completedSteps, partialStep, remainingContent };
   }
