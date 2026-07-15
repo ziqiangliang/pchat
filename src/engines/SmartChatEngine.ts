@@ -17,7 +17,7 @@ import {
   DrawingStep
 } from '../types';
 import { useSmartChatStore, createNewSession } from '../stores/smartChatStore';
-import { DEEPSEEK_BASE_URL, DEEPSEEK_MODEL } from '../config/api';
+import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL } from '../config/api';
 
 export interface SmartChatCallbacks {
   onExplainText: (text: string) => void;
@@ -212,14 +212,15 @@ export class SmartChatEngine {
     _apiEndpoint?: string,
     _apiKey?: string
   ): Promise<string> {
-    const deepseekApiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-
-    if (!deepseekApiKey) {
-      throw new Error('请设置 VITE_DEEPSEEK_API_KEY 环境变量');
+    if (!LLM_API_KEY) {
+      throw new Error('请设置 VITE_LLM_API_KEY 环境变量');
     }
 
-    const deepseekBaseUrl = DEEPSEEK_BASE_URL;
-    const apiEndpoint = `${deepseekBaseUrl}/chat/completions`;
+    if (!LLM_BASE_URL || !LLM_MODEL) {
+      throw new Error('请设置 VITE_LLM_BASE_URL 和 VITE_LLM_MODEL 环境变量');
+    }
+
+    const apiEndpoint = `${LLM_BASE_URL}/chat/completions`;
 
     const messages = [
       { role: 'system', content: prompt.system },
@@ -230,10 +231,10 @@ export class SmartChatEngine {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${deepseekApiKey}`
+        'Authorization': `Bearer ${LLM_API_KEY}`
       },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+        model: LLM_MODEL,
         messages,
         max_tokens: this.config.maxTokens,
         temperature: this.config.temperature,

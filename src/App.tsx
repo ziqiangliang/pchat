@@ -13,7 +13,7 @@ import { ttsManager } from './services/ttsManager';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
-import { DEEPSEEK_BASE_URL, DEEPSEEK_MODEL } from './config/api';
+import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL } from './config/api';
 import './index.css';
 
 function App() {
@@ -111,10 +111,13 @@ function App() {
   const handleAIGenerate = useCallback(async () => {
     if (!userInput.trim() || isLoading) return;
 
-    const deepseekApiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-
-    if (!deepseekApiKey) {
+    if (!LLM_API_KEY) {
       alert(t('chat.apiKeyRequired'));
+      return;
+    }
+
+    if (!LLM_BASE_URL || !LLM_MODEL) {
+      alert(t('chat.llmConfigRequired'));
       return;
     }
 
@@ -130,16 +133,14 @@ function App() {
     setIsLoading(true);
 
     try {
-      const deepseekBaseUrl = DEEPSEEK_BASE_URL;
-
-      const response = await fetch(`${deepseekBaseUrl}/chat/completions`, {
+      const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${deepseekApiKey}`
+          'Authorization': `Bearer ${LLM_API_KEY}`
         },
         body: JSON.stringify({
-          model: DEEPSEEK_MODEL,
+          model: LLM_MODEL,
           stream: true,
           messages: [
             {

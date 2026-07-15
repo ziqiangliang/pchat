@@ -28,7 +28,7 @@ A **graphical ChatGPT** that explains concepts while drawing dynamic visualizati
 ### Prerequisites
 
 - Node.js 18+
-- OpenAI API Key or compatible API (DeepSeek, etc.)
+- OpenAI-compatible LLM API key
 
 ### Installation
 
@@ -42,16 +42,10 @@ npm install
 
 Create a `.env` file based on `.env.example`:
 
-**Using OpenAI:**
 ```env
-VITE_OPENAI_API_KEY=your_api_key_here
-VITE_OPENAI_API_ENDPOINT=https://api.openai.com/v1/chat/completions
-```
-
-**Using DeepSeek:**
-```env
-VITE_DEEPSEEK_API_KEY=your_api_key_here
-VITE_DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+VITE_LLM_API_KEY=your_api_key_here
+VITE_LLM_BASE_URL=https://api.example.com/v1
+VITE_LLM_MODEL=your-model-name
 ```
 
 ### Development
@@ -202,6 +196,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [OpenAI](https://openai.com/) for GPT-4o API
-- [DeepSeek](https://deepseek.com/) for compatible API
+- [OpenAI](https://openai.com/) for the Chat Completions API format
 - All contributors and users of this project

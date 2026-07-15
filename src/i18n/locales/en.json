@@ -47,7 +47,8 @@
     "copySuccess": "Copied!",
     "copyFailed": "Copy failed",
     "duration": "Duration",
-    "apiKeyRequired": "Please set VITE_DEEPSEEK_API_KEY environment variable",
+    "apiKeyRequired": "Please set VITE_LLM_API_KEY environment variable",
+    "llmConfigRequired": "Please set VITE_LLM_BASE_URL and VITE_LLM_MODEL environment variables",
     "title": "Chat",
     "online": "Online"
   },

@@ -47,7 +47,8 @@
     "copySuccess": "复制成功！",
     "copyFailed": "复制失败",
     "duration": "耗时",
-    "apiKeyRequired": "请设置 VITE_DEEPSEEK_API_KEY 环境变量",
+    "apiKeyRequired": "请设置 VITE_LLM_API_KEY 环境变量",
+    "llmConfigRequired": "请设置 VITE_LLM_BASE_URL 和 VITE_LLM_MODEL 环境变量",
     "title": "对话",
     "online": "在线"
   },
