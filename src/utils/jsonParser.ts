@@ -257,8 +257,15 @@ function extractPartialSteps(content: string): {
   let remainingContent = content;
   let lastParsedIndex = 0;
 
-  // 查找 steps 数组的起始位置
-  const stepsArrayStart = content.indexOf('[');
+  // 查找 "steps": [ 的位置（而不是随便一个 [）
+  const stepsKeyPattern = /"steps"\s*:\s*\[/;
+  const stepsMatch = content.match(stepsKeyPattern);
+  if (!stepsMatch) {
+    return { completedSteps, partialStep, remainingContent };
+  }
+  
+  // 找到 steps 数组的起始位置（[ 的位置）
+  const stepsArrayStart = content.indexOf('[', stepsMatch.index!);
   if (stepsArrayStart === -1) {
     return { completedSteps, partialStep, remainingContent };
   }

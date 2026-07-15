@@ -215,11 +215,10 @@ class StepPlayer {
     this.newSession();
     
     const store = useStore.getState();
-    store.resetGraphState();
+    store.resetGraphDisplay();
     store.setPlayMode('incremental');
     store.setIsAutoPlaying(true);
     store.setPlayedStepCount(0);
-    store.clearPendingSteps();
     
     this.init();
   }
