@@ -13,6 +13,7 @@ import { ttsManager } from './services/ttsManager';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
+import { DEEPSEEK_BASE_URL, DEEPSEEK_MODEL } from './config/api';
 import './index.css';
 
 function App() {
@@ -129,7 +130,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const deepseekBaseUrl = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
+      const deepseekBaseUrl = DEEPSEEK_BASE_URL;
 
       const response = await fetch(`${deepseekBaseUrl}/chat/completions`, {
         method: 'POST',
@@ -138,7 +139,7 @@ function App() {
           'Authorization': `Bearer ${deepseekApiKey}`
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: DEEPSEEK_MODEL,
           stream: true,
           messages: [
             {
@@ -310,7 +311,7 @@ function App() {
         content: t('chat.error'),
         timestamp: Date.now()
       };
-      setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage, errorMessage]);
+      setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), errorMessage]);
       setIsLoading(false);
       setLoadingStartTime(null);
     }

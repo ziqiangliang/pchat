@@ -17,6 +17,7 @@ import {
   DrawingStep
 } from '../types';
 import { useSmartChatStore, createNewSession } from '../stores/smartChatStore';
+import { DEEPSEEK_BASE_URL, DEEPSEEK_MODEL } from '../config/api';
 
 export interface SmartChatCallbacks {
   onExplainText: (text: string) => void;
@@ -217,7 +218,7 @@ export class SmartChatEngine {
       throw new Error('请设置 VITE_DEEPSEEK_API_KEY 环境变量');
     }
 
-    const deepseekBaseUrl = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
+    const deepseekBaseUrl = DEEPSEEK_BASE_URL;
     const apiEndpoint = `${deepseekBaseUrl}/chat/completions`;
 
     const messages = [
@@ -232,7 +233,7 @@ export class SmartChatEngine {
         'Authorization': `Bearer ${deepseekApiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: DEEPSEEK_MODEL,
         messages,
         max_tokens: this.config.maxTokens,
         temperature: this.config.temperature,

@@ -79,8 +79,8 @@ export function validateDSL(json: unknown): { valid: boolean; errors: string[] }
 
       const stepObj = step as Record<string, unknown>;
 
-      // 每个 step 必须有 text
-      if (!stepObj.text && typeof stepObj.text !== 'string') {
+      // 每个 step 必须有非空 text
+      if (typeof stepObj.text !== 'string' || stepObj.text.trim() === '') {
         errors.push(`steps[${index}] 缺少 text 字段`);
       }
     });

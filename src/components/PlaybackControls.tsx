@@ -55,17 +55,6 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     }
   }, [isPaused, ttsEnabled, ttsManagerState.isPaused]);
 
-  useEffect(() => {
-    if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
-      const timer = setTimeout(() => {
-        if (ttsEnabled && ttsAutoPlay && currentText && !isPaused) {
-          ttsManager.speak(currentText, { rate: playbackSpeed });
-        }
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [currentText, ttsEnabled, ttsAutoPlay, playbackSpeed, isPaused]);
-
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const stepIndex = parseInt(e.target.value, 10);
     onJumpToStep(stepIndex);
