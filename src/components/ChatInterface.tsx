@@ -6,6 +6,7 @@ interface ChatInterfaceProps {
   chatHistory: ChatMessage[];
   userInput: string;
   isLoading: boolean;
+  isStreaming?: boolean;
   loadingStartTime: number | null;
   onInputChange: (value: string) => void;
   onSend: () => void;
@@ -16,6 +17,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   chatHistory,
   userInput,
   isLoading,
+  isStreaming = false,
   loadingStartTime,
   onInputChange,
   onSend,
@@ -152,7 +154,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <span className="loading-dot"></span>
                 <span className="loading-dot"></span>
               </div>
-              <span className="loading-text">{t('chat.loading')}</span>
+              <span className="loading-text">
+                {isStreaming ? t('chat.streaming') : t('chat.loading')}
+              </span>
               {loadingStartTime && (
                 <span className="loading-timer">
                   {formatDuration(currentElapsed)}

@@ -26,6 +26,8 @@ function App() {
   const setChatHistory = useStore(state => state.setChatHistory);
   const isLoading = useStore(state => state.isLoading);
   const setIsLoading = useStore(state => state.setIsLoading);
+  const isStreaming = useStore(state => state.isStreaming);
+  const setIsStreaming = useStore(state => state.setIsStreaming);
   const loadingStartTime = useStore(state => state.loadingStartTime);
   const setLoadingStartTime = useStore(state => state.setLoadingStartTime);
   const pastedJson = useStore(state => state.pastedJson);
@@ -131,6 +133,7 @@ function App() {
     setUserInput('');
     setLoadingStartTime(Date.now());
     setIsLoading(true);
+    setIsStreaming(false);
 
     try {
       const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
@@ -173,12 +176,8 @@ function App() {
         let isDslParsed = false;
         let assistantMessageId: string | null = null;
         let lastParsedStepsCount = 0;
-        let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
-        const clearPendingTimeouts = () => {
-          pendingTimeouts.forEach(id => clearTimeout(id));
-          pendingTimeouts = [];
-        };
+        setIsStreaming(true);
 
         while (true) {
           const { done, value } = await reader.read();
@@ -256,7 +255,6 @@ function App() {
                         const state = useStore.getState();
                         if (state.playedStepCount >= completedSteps.length) {
                           isDslParsed = true;
-                          clearPendingTimeouts();
                         }
                       }
                     }
@@ -268,7 +266,6 @@ function App() {
           }
         }
 
-        clearPendingTimeouts();
         if (!isDslParsed && actualContent) {
           const finalResult = safeParseDSL(actualContent);
           if (finalResult.success && finalResult.data) {
@@ -303,6 +300,7 @@ function App() {
       }
 
       setIsLoading(false);
+      setIsStreaming(false);
       setLoadingStartTime(null);
 
     } catch (error) {
@@ -314,9 +312,10 @@ function App() {
       };
       setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), errorMessage]);
       setIsLoading(false);
+      setIsStreaming(false);
       setLoadingStartTime(null);
     }
-  }, [userInput, isLoading, chatHistory, setDsl, setChatHistory, setUserInput, setIsLoading, setLoadingStartTime, stepPlayer]);
+  }, [userInput, isLoading, chatHistory, setDsl, setChatHistory, setUserInput, setIsLoading, setIsStreaming, setLoadingStartTime, stepPlayer]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -485,6 +484,7 @@ function App() {
           chatHistory={chatHistory}
           userInput={userInput}
           isLoading={isLoading}
+          isStreaming={isStreaming}
           loadingStartTime={loadingStartTime}
           onInputChange={setUserInput}
           onSend={handleAIGenerate}

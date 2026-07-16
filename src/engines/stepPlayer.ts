@@ -9,7 +9,8 @@ import {
   STEP_BASE_INTERVAL
 } from '../config';
 
-type ExecuteStepFn = (step: Step, stepIndex: number) => number;
+type ExecuteStepOptions = { immediate?: boolean };
+type ExecuteStepFn = (step: Step, stepIndex: number, options?: ExecuteStepOptions) => number;
 type StartTypingFn = (text: string, onComplete?: () => void) => void;
 
 interface StepPlayerConfig {
@@ -308,7 +309,7 @@ class StepPlayer {
     store.setPlayedStepCount(stepIndex + 1);
 
     for (let i = 0; i <= stepIndex; i++) {
-      this.config.executeStep(state.dsl.steps[i], i);
+      this.config.executeStep(state.dsl.steps[i], i, { immediate: true });
     }
 
     const lastStep = state.dsl.steps[stepIndex];

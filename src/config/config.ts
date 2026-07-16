@@ -16,6 +16,9 @@ export const TIMELINE_DURATION = 800;
 // 节点动画时长 (毫秒)
 export const NODE_ANIMATION_DURATION = 500;
 
+// 同一步内多个节点依次入场的间隔 (毫秒)
+export const ADD_STAGGER_DELAY = 200;
+
 // 步骤之间的基础间隔 (毫秒)
 export const STEP_BASE_INTERVAL = 500;
 
@@ -123,6 +126,7 @@ export const config = {
   animation: {
     timelineDuration: TIMELINE_DURATION,
     nodeAnimationDuration: NODE_ANIMATION_DURATION,
+    addStaggerDelay: ADD_STAGGER_DELAY,
     stepBaseInterval: STEP_BASE_INTERVAL,
     ttsAnimationDelay: TTS_ANIMATION_DELAY,
     timelineEventDelay: TIMELINE_EVENT_DELAY,
