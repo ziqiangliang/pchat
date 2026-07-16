@@ -51,7 +51,10 @@
     "apiKeyRequired": "Please set VITE_LLM_API_KEY environment variable",
     "llmConfigRequired": "Please set VITE_LLM_BASE_URL and VITE_LLM_MODEL environment variables",
     "title": "Chat",
-    "online": "Online"
+    "online": "Online",
+    "emptyTitle": "Ask a question, watch it draw",
+    "emptyDesc": "AI explains step by step while drawing on the canvas.",
+    "inputHint": "Enter to send · Shift+Enter for newline"
   },
   "mobile": {
     "menu": "Menu",
