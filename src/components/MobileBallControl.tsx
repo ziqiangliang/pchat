@@ -35,6 +35,8 @@ const VolumeIcon: React.FC<{ muted: boolean }> = ({ muted }) => (
 export const MobileBallControl: React.FC<MobileBallControlProps> = ({
   onPlay,
   onPause,
+  onPrev,
+  onNext,
   onVolumeChange,
   onReplay,
   isPlaying,
@@ -69,6 +71,22 @@ export const MobileBallControl: React.FC<MobileBallControlProps> = ({
             {isPlaying ? '⏸' : '▶'}
           </span>
           <span className="mobile-ball-item-label">{isPlaying ? t('mobile.pause') : t('mobile.play')}</span>
+        </button>
+
+        <button
+          className="mobile-ball-item"
+          onClick={() => handleItemClick(onPrev)}
+        >
+          <span className="mobile-ball-item-icon">⏮</span>
+          <span className="mobile-ball-item-label">{t('mobile.prev')}</span>
+        </button>
+
+        <button
+          className="mobile-ball-item"
+          onClick={() => handleItemClick(onNext)}
+        >
+          <span className="mobile-ball-item-icon">⏭</span>
+          <span className="mobile-ball-item-label">{t('mobile.next')}</span>
         </button>
 
         <button

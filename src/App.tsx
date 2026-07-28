@@ -13,6 +13,7 @@ import { ttsManager } from './services/ttsManager';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
+import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_THINKING } from './config/api';
 import './index.css';
 
 function App() {
@@ -25,6 +26,8 @@ function App() {
   const setChatHistory = useStore(state => state.setChatHistory);
   const isLoading = useStore(state => state.isLoading);
   const setIsLoading = useStore(state => state.setIsLoading);
+  const isStreaming = useStore(state => state.isStreaming);
+  const setIsStreaming = useStore(state => state.setIsStreaming);
   const loadingStartTime = useStore(state => state.loadingStartTime);
   const setLoadingStartTime = useStore(state => state.setLoadingStartTime);
   const pastedJson = useStore(state => state.pastedJson);
@@ -110,10 +113,13 @@ function App() {
   const handleAIGenerate = useCallback(async () => {
     if (!userInput.trim() || isLoading) return;
 
-    const deepseekApiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-
-    if (!deepseekApiKey) {
+    if (!LLM_API_KEY) {
       alert(t('chat.apiKeyRequired'));
+      return;
+    }
+
+    if (!LLM_BASE_URL || !LLM_MODEL) {
+      alert(t('chat.llmConfigRequired'));
       return;
     }
 
@@ -127,19 +133,19 @@ function App() {
     setUserInput('');
     setLoadingStartTime(Date.now());
     setIsLoading(true);
+    setIsStreaming(false);
 
     try {
-      const deepseekBaseUrl = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1';
-
-      const response = await fetch(`${deepseekBaseUrl}/chat/completions`, {
+      const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${deepseekApiKey}`
+          'Authorization': `Bearer ${LLM_API_KEY}`
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: LLM_MODEL,
           stream: true,
+          thinking: LLM_THINKING,
           messages: [
             {
               role: 'system',
@@ -168,15 +174,10 @@ function App() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let actualContent = '';
-        let isDslParsed = false;
         let assistantMessageId: string | null = null;
         let lastParsedStepsCount = 0;
-        let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
-        const clearPendingTimeouts = () => {
-          pendingTimeouts.forEach(id => clearTimeout(id));
-          pendingTimeouts = [];
-        };
+        setIsStreaming(true);
 
         while (true) {
           const { done, value } = await reader.read();
@@ -195,68 +196,58 @@ function App() {
                 const chunkData = JSON.parse(data);
                 const content = chunkData.choices[0]?.delta?.content || '';
                 if (content) {
-                    if (!assistantMessageId) {
-                      actualContent = content;
-                      const newAssistantMessage: ChatMessage = {
-                        role: 'assistant',
-                        content: content,
-                        displayContent: '',
-                        timestamp: Date.now()
-                      };
-                      setChatHistory(prev => [...prev, newAssistantMessage]);
-                      assistantMessageId = newAssistantMessage.timestamp.toString();
-                    } else {
-                      actualContent += content;
-                      const { completedSteps, partialStep } = extractStreamingSteps(actualContent);
-                      const displayText = [
-                        ...completedSteps.map((s: any) => s.text),
-                        ...(partialStep ? [(partialStep as any).text] : [])
-                      ].join('\n');
-                      setChatHistory(prev => {
-                        const updatedHistory = [...prev];
-                        const assistantMsgIndex = updatedHistory.findIndex(
-                          msg => msg.role === 'assistant' && msg.timestamp.toString() === assistantMessageId
-                        );
-                        if (assistantMsgIndex !== -1) {
-                          updatedHistory[assistantMsgIndex] = {
-                            ...updatedHistory[assistantMsgIndex],
-                            content: actualContent,
-                            displayContent: displayText
-                          };
-                        }
-                        return updatedHistory;
-                      });
+                  if (!assistantMessageId) {
+                    actualContent = content;
+                    const newAssistantMessage: ChatMessage = {
+                      role: 'assistant',
+                      content: content,
+                      displayContent: '',
+                      timestamp: Date.now()
+                    };
+                    setChatHistory(prev => [...prev, newAssistantMessage]);
+                    assistantMessageId = newAssistantMessage.timestamp.toString();
+                  } else {
+                    actualContent += content;
+                    const { completedSteps, partialStep } = extractStreamingSteps(actualContent);
+                    const displayText = [
+                      ...completedSteps.map((s: any) => s.text),
+                      ...(partialStep ? [(partialStep as any).text] : [])
+                    ].join('\n');
+                    setChatHistory(prev => {
+                      const updatedHistory = [...prev];
+                      const assistantMsgIndex = updatedHistory.findIndex(
+                        msg => msg.role === 'assistant' && msg.timestamp.toString() === assistantMessageId
+                      );
+                      if (assistantMsgIndex !== -1) {
+                        updatedHistory[assistantMsgIndex] = {
+                          ...updatedHistory[assistantMsgIndex],
+                          content: actualContent,
+                          displayContent: displayText
+                        };
+                      }
+                      return updatedHistory;
+                    });
+                  }
+
+                  const { completedSteps } = extractStreamingSteps(actualContent);
+
+                  if (completedSteps.length > 0) {
+                    const partialDsl: DSL = {
+                      steps: completedSteps as any[]
+                    };
+                    setDsl(partialDsl);
+
+                    if (lastParsedStepsCount === 0 && completedSteps.length > 0) {
+                      stepPlayer.startIncrementalMode();
                     }
 
-                  if (!isDslParsed) {
-                    const { completedSteps, isComplete } = extractStreamingSteps(actualContent);
+                    const newStepsCount = completedSteps.length - lastParsedStepsCount;
 
-                    if (completedSteps.length > 0) {
-                      const partialDsl: DSL = {
-                        steps: completedSteps as any[]
-                      };
-                      setDsl(partialDsl);
+                    if (newStepsCount > 0) {
+                      const newSteps = completedSteps.slice(lastParsedStepsCount);
+                      stepPlayer.addStepsToQueue(newSteps as Step[]);
 
-                      if (lastParsedStepsCount === 0 && completedSteps.length > 0) {
-                        stepPlayer.startIncrementalMode();
-                      }
-
-                      const newStepsCount = completedSteps.length - lastParsedStepsCount;
-
-                      if (newStepsCount > 0) {
-                        const newSteps = completedSteps.slice(lastParsedStepsCount);
-                        stepPlayer.addStepsToQueue(newSteps as Step[]);
-
-                        lastParsedStepsCount = completedSteps.length;
-                      }
-
-                      if (isComplete) {
-                        const state = useStore.getState();
-                        if (state.playedStepCount >= completedSteps.length) {
-                          isDslParsed = true;
-                          clearPendingTimeouts();
-                        }
-                      }
+                      lastParsedStepsCount = completedSteps.length;
                     }
                   }
                 }
@@ -266,8 +257,7 @@ function App() {
           }
         }
 
-        clearPendingTimeouts();
-        if (!isDslParsed && actualContent) {
+        if (actualContent) {
           const finalResult = safeParseDSL(actualContent);
           if (finalResult.success && finalResult.data) {
             setDsl(finalResult.data);
@@ -290,17 +280,20 @@ function App() {
             }
 
             const currentPlayMode = useStore.getState().playMode;
-            if (currentPlayMode !== 'incremental') {
-              const steps = finalResult.data.steps;
-              if (steps && steps.length > 0) {
-                stepPlayer.startReplay(finalResult.data);
-              }
+            const allSteps = finalResult.data.steps;
+
+            if (currentPlayMode === 'incremental' && allSteps.length > lastParsedStepsCount) {
+              const remainingSteps = allSteps.slice(lastParsedStepsCount);
+              stepPlayer.addStepsToQueue(remainingSteps as Step[]);
+            } else if (currentPlayMode !== 'incremental' && allSteps.length > 0) {
+              stepPlayer.startReplay(finalResult.data);
             }
           }
         }
       }
 
       setIsLoading(false);
+      setIsStreaming(false);
       setLoadingStartTime(null);
 
     } catch (error) {
@@ -310,11 +303,12 @@ function App() {
         content: t('chat.error'),
         timestamp: Date.now()
       };
-      setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage, errorMessage]);
+      setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), errorMessage]);
       setIsLoading(false);
+      setIsStreaming(false);
       setLoadingStartTime(null);
     }
-  }, [userInput, isLoading, chatHistory, setDsl, setChatHistory, setUserInput, setIsLoading, setLoadingStartTime, stepPlayer]);
+  }, [userInput, isLoading, chatHistory, setDsl, setChatHistory, setUserInput, setIsLoading, setIsStreaming, setLoadingStartTime, stepPlayer]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -483,6 +477,7 @@ function App() {
           chatHistory={chatHistory}
           userInput={userInput}
           isLoading={isLoading}
+          isStreaming={isStreaming}
           loadingStartTime={loadingStartTime}
           onInputChange={setUserInput}
           onSend={handleAIGenerate}

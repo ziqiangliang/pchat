@@ -139,7 +139,20 @@ const GraphCanvasComponent: React.FC<GraphCanvasProps> = ({
       return posMap;
     }
 
-    const optimizedPositions = layoutOptimizer.optimize(allNodes, edges);
+    // 为缺失坐标的节点补默认位置（不可变副本，避免渲染阶段修改 store 对象）
+    const processedNodes = allNodes.map((node, index) => {
+      if (node.x !== undefined && node.y !== null && node.y !== undefined) {
+        return node;
+      }
+
+      return {
+        ...node,
+        x: 100 + (index % 4) * 160,
+        y: 80 + Math.floor(index / 4) * 120,
+      };
+    });
+
+    const optimizedPositions = layoutOptimizer.optimize(processedNodes, edges);
     
     optimizedPositions.forEach((pos, id) => {
       posMap.set(id, pos);

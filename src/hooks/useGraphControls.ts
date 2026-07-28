@@ -1,11 +1,11 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useStore } from '../stores/store';
 import { Step } from '../types';
-import { NODE_ANIMATION_DURATION, TIMELINE_DURATION, TIMELINE_EVENT_DELAY, TYPING_BASE_DELAY, TYPING_PER_CHAR_DELAY, STEP_BASE_INTERVAL } from '../config';
+import { NODE_ANIMATION_DURATION, TIMELINE_DURATION, TIMELINE_EVENT_DELAY, TYPING_BASE_DELAY, TYPING_PER_CHAR_DELAY, STEP_BASE_INTERVAL, ADD_STAGGER_DELAY } from '../config';
 import { StepPlayer } from '../engines/stepPlayer';
 
 interface GraphControlsReturn {
-  executeStep: (step: Step, stepIndex: number) => number;
+  executeStep: (step: Step, stepIndex: number, options?: { immediate?: boolean }) => number;
   handleClear: () => void;
   handleJumpToStep: (stepIndex: number) => void;
   handlePrevStep: () => void;
@@ -78,8 +78,9 @@ export const useGraphControls = (): GraphControlsReturn => {
     typingTimeoutIdsRef.current.add(timeoutId);
   }, [setDisplayText, clearAllTypingTimeouts]);
 
-  const executeStep = useCallback((step: Step, stepIndex: number) => {
+  const executeStep = useCallback((step: Step, stepIndex: number, options?: { immediate?: boolean }) => {
     try {
+      const immediate = options?.immediate === true;
       const current = getCurrentState();
       let newNodes = new Map(current.nodes);
       let newEdges = [...current.edges];
@@ -89,33 +90,21 @@ export const useGraphControls = (): GraphControlsReturn => {
       let newActiveTimelineEvents = [...current.activeTimelineEvents];
       let newTimelineAnimations = new Map(current.timelineAnimations);
 
-      if (step.add && Array.isArray(step.add)) {
-        step.add.forEach(node => {
-          if (node && node.id) {
-            newNodes.set(node.id, node);
-            newVisibleNodeIds.add(node.id);
+      const nodesToAdd = (step.add && Array.isArray(step.add))
+        ? step.add.filter(node => node && node.id)
+        : [];
+
+      // 节点数据立刻写入；可见性按 add 顺序 stagger（跳转步骤时 immediate 一次全显）
+      nodesToAdd.forEach((node, index) => {
+        newNodes.set(node.id, node);
+
+        if (immediate || index === 0) {
+          newVisibleNodeIds.add(node.id);
+          if (!immediate) {
+            newNodeAnimations.set(node.id, step.animate?.type || 'fade');
           }
-        });
-
-        if (step.animate && step.animate.type && step.add) {
-          step.add.forEach(node => {
-            if (node && node.id) {
-              newNodeAnimations.set(node.id, step.animate!.type);
-            }
-          });
-
-          step.add.forEach(node => {
-            if (node && node.id) {
-              setTimeout(() => {
-                const currentAnims = useStore.getState().nodeAnimations;
-                const newMap = new Map(currentAnims);
-                newMap.delete(node.id!);
-                setNodeAnimations(newMap);
-              }, step.animate!.duration || NODE_ANIMATION_DURATION);
-            }
-          });
         }
-      }
+      });
 
       if (step.connect && Array.isArray(step.connect)) {
         step.connect.forEach(edge => {
@@ -123,7 +112,9 @@ export const useGraphControls = (): GraphControlsReturn => {
             if (!newEdges.some(e => e.from === edge.from && e.to === edge.to)) {
               newEdges.push(edge);
             }
-            newVisibleEdgeIds.add(`${edge.from}-${edge.to}`);
+            if (immediate || nodesToAdd.length <= 1) {
+              newVisibleEdgeIds.add(`${edge.from}-${edge.to}`);
+            }
           }
         });
       }
@@ -163,6 +154,66 @@ export const useGraphControls = (): GraphControlsReturn => {
       setNodeAnimations(newNodeAnimations);
       setActiveTimelineEvents(newActiveTimelineEvents);
       setTimelineAnimations(newTimelineAnimations);
+
+      // 清理第一步入场动画标记
+      if (!immediate && nodesToAdd.length > 0) {
+        const firstId = nodesToAdd[0].id;
+        const animDuration = step.animate?.duration || NODE_ANIMATION_DURATION;
+        setTimeout(() => {
+          const currentAnims = useStore.getState().nodeAnimations;
+          if (!currentAnims.has(firstId)) return;
+          const newMap = new Map(currentAnims);
+          newMap.delete(firstId);
+          setNodeAnimations(newMap);
+        }, animDuration);
+      }
+
+      // 后续节点 / 边依次入场
+      if (!immediate && nodesToAdd.length > 1) {
+        const animType = step.animate?.type || 'fade';
+        const animDuration = step.animate?.duration || NODE_ANIMATION_DURATION;
+
+        nodesToAdd.slice(1).forEach((node, offset) => {
+          const delay = (offset + 1) * ADD_STAGGER_DELAY;
+          setTimeout(() => {
+            if (useStore.getState().currentStep !== stepIndex) return;
+
+            const state = useStore.getState();
+            const visible = new Set(state.visibleNodeIds);
+            visible.add(node.id);
+            setVisibleNodeIds(visible);
+
+            const anims = new Map(state.nodeAnimations);
+            anims.set(node.id, animType);
+            setNodeAnimations(anims);
+
+            setTimeout(() => {
+              const currentAnims = useStore.getState().nodeAnimations;
+              if (!currentAnims.has(node.id)) return;
+              const next = new Map(currentAnims);
+              next.delete(node.id);
+              setNodeAnimations(next);
+            }, animDuration);
+          }, delay);
+        });
+
+        // 边在最后一个节点开始出现后再显示，避免连线「悬空」
+        if (step.connect && Array.isArray(step.connect) && step.connect.length > 0) {
+          const edgeDelay = (nodesToAdd.length - 1) * ADD_STAGGER_DELAY;
+          setTimeout(() => {
+            if (useStore.getState().currentStep !== stepIndex) return;
+
+            const state = useStore.getState();
+            const visible = new Set(state.visibleEdgeIds);
+            step.connect!.forEach(edge => {
+              if (edge?.from && edge?.to) {
+                visible.add(`${edge.from}-${edge.to}`);
+              }
+            });
+            setVisibleEdgeIds(visible);
+          }, edgeDelay);
+        }
+      }
 
       if (step.timeline && Array.isArray(step.timeline)) {
         step.timeline.forEach((event, index) => {
