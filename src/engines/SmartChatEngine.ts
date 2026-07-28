@@ -17,7 +17,7 @@ import {
   DrawingStep
 } from '../types';
 import { useSmartChatStore, createNewSession } from '../stores/smartChatStore';
-import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL } from '../config/api';
+import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_THINKING } from '../config/api';
 
 export interface SmartChatCallbacks {
   onExplainText: (text: string) => void;
@@ -238,7 +238,8 @@ export class SmartChatEngine {
         messages,
         max_tokens: this.config.maxTokens,
         temperature: this.config.temperature,
-        stream: false
+        stream: false,
+        thinking: LLM_THINKING
       }),
       signal: this.abortController?.signal
     });

@@ -249,7 +249,19 @@ class StepPlayer {
         const nextIndex = useStore.getState().playedStepCount;
         this.playStepInternal(nextStep, nextIndex);
       }
+    } else if (steps.length > 0) {
+      this.tryPlayNextIfIdle();
     }
+  }
+
+  private tryPlayNextIfIdle() {
+    const state = useStore.getState();
+    if (!state.isAutoPlaying || state.playMode !== 'incremental') return;
+    if (state.pendingSteps.length === 0) return;
+    if (ttsManager.getState().isPlaying) return;
+    if (state.playedStepCount !== this.expectedNextStepIndex) return;
+
+    this.playNextInQueue();
   }
 
   startReplay(dsl: DSL) {
@@ -283,6 +295,7 @@ class StepPlayer {
       this.nonTtsTimeoutId = null;
     }
 
+    this.expectedNextStepIndex = -1;
     ttsManager.stop();
     useStore.getState().stopPlayback();
   }

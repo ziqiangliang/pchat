@@ -13,7 +13,7 @@ import { ttsManager } from './services/ttsManager';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
 import { useGraphControls } from './hooks/useGraphControls';
 import { DSL_SYSTEM_PROMPT } from './config/prompts';
-import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL } from './config/api';
+import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_THINKING } from './config/api';
 import './index.css';
 
 function App() {
@@ -145,6 +145,7 @@ function App() {
         body: JSON.stringify({
           model: LLM_MODEL,
           stream: true,
+          thinking: LLM_THINKING,
           messages: [
             {
               role: 'system',
@@ -173,7 +174,6 @@ function App() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let actualContent = '';
-        let isDslParsed = false;
         let assistantMessageId: string | null = null;
         let lastParsedStepsCount = 0;
 
@@ -196,67 +196,58 @@ function App() {
                 const chunkData = JSON.parse(data);
                 const content = chunkData.choices[0]?.delta?.content || '';
                 if (content) {
-                    if (!assistantMessageId) {
-                      actualContent = content;
-                      const newAssistantMessage: ChatMessage = {
-                        role: 'assistant',
-                        content: content,
-                        displayContent: '',
-                        timestamp: Date.now()
-                      };
-                      setChatHistory(prev => [...prev, newAssistantMessage]);
-                      assistantMessageId = newAssistantMessage.timestamp.toString();
-                    } else {
-                      actualContent += content;
-                      const { completedSteps, partialStep } = extractStreamingSteps(actualContent);
-                      const displayText = [
-                        ...completedSteps.map((s: any) => s.text),
-                        ...(partialStep ? [(partialStep as any).text] : [])
-                      ].join('\n');
-                      setChatHistory(prev => {
-                        const updatedHistory = [...prev];
-                        const assistantMsgIndex = updatedHistory.findIndex(
-                          msg => msg.role === 'assistant' && msg.timestamp.toString() === assistantMessageId
-                        );
-                        if (assistantMsgIndex !== -1) {
-                          updatedHistory[assistantMsgIndex] = {
-                            ...updatedHistory[assistantMsgIndex],
-                            content: actualContent,
-                            displayContent: displayText
-                          };
-                        }
-                        return updatedHistory;
-                      });
+                  if (!assistantMessageId) {
+                    actualContent = content;
+                    const newAssistantMessage: ChatMessage = {
+                      role: 'assistant',
+                      content: content,
+                      displayContent: '',
+                      timestamp: Date.now()
+                    };
+                    setChatHistory(prev => [...prev, newAssistantMessage]);
+                    assistantMessageId = newAssistantMessage.timestamp.toString();
+                  } else {
+                    actualContent += content;
+                    const { completedSteps, partialStep } = extractStreamingSteps(actualContent);
+                    const displayText = [
+                      ...completedSteps.map((s: any) => s.text),
+                      ...(partialStep ? [(partialStep as any).text] : [])
+                    ].join('\n');
+                    setChatHistory(prev => {
+                      const updatedHistory = [...prev];
+                      const assistantMsgIndex = updatedHistory.findIndex(
+                        msg => msg.role === 'assistant' && msg.timestamp.toString() === assistantMessageId
+                      );
+                      if (assistantMsgIndex !== -1) {
+                        updatedHistory[assistantMsgIndex] = {
+                          ...updatedHistory[assistantMsgIndex],
+                          content: actualContent,
+                          displayContent: displayText
+                        };
+                      }
+                      return updatedHistory;
+                    });
+                  }
+
+                  const { completedSteps } = extractStreamingSteps(actualContent);
+
+                  if (completedSteps.length > 0) {
+                    const partialDsl: DSL = {
+                      steps: completedSteps as any[]
+                    };
+                    setDsl(partialDsl);
+
+                    if (lastParsedStepsCount === 0 && completedSteps.length > 0) {
+                      stepPlayer.startIncrementalMode();
                     }
 
-                  if (!isDslParsed) {
-                    const { completedSteps, isComplete } = extractStreamingSteps(actualContent);
+                    const newStepsCount = completedSteps.length - lastParsedStepsCount;
 
-                    if (completedSteps.length > 0) {
-                      const partialDsl: DSL = {
-                        steps: completedSteps as any[]
-                      };
-                      setDsl(partialDsl);
+                    if (newStepsCount > 0) {
+                      const newSteps = completedSteps.slice(lastParsedStepsCount);
+                      stepPlayer.addStepsToQueue(newSteps as Step[]);
 
-                      if (lastParsedStepsCount === 0 && completedSteps.length > 0) {
-                        stepPlayer.startIncrementalMode();
-                      }
-
-                      const newStepsCount = completedSteps.length - lastParsedStepsCount;
-
-                      if (newStepsCount > 0) {
-                        const newSteps = completedSteps.slice(lastParsedStepsCount);
-                        stepPlayer.addStepsToQueue(newSteps as Step[]);
-
-                        lastParsedStepsCount = completedSteps.length;
-                      }
-
-                      if (isComplete) {
-                        const state = useStore.getState();
-                        if (state.playedStepCount >= completedSteps.length) {
-                          isDslParsed = true;
-                        }
-                      }
+                      lastParsedStepsCount = completedSteps.length;
                     }
                   }
                 }
@@ -266,7 +257,7 @@ function App() {
           }
         }
 
-        if (!isDslParsed && actualContent) {
+        if (actualContent) {
           const finalResult = safeParseDSL(actualContent);
           if (finalResult.success && finalResult.data) {
             setDsl(finalResult.data);
@@ -289,11 +280,13 @@ function App() {
             }
 
             const currentPlayMode = useStore.getState().playMode;
-            if (currentPlayMode !== 'incremental') {
-              const steps = finalResult.data.steps;
-              if (steps && steps.length > 0) {
-                stepPlayer.startReplay(finalResult.data);
-              }
+            const allSteps = finalResult.data.steps;
+
+            if (currentPlayMode === 'incremental' && allSteps.length > lastParsedStepsCount) {
+              const remainingSteps = allSteps.slice(lastParsedStepsCount);
+              stepPlayer.addStepsToQueue(remainingSteps as Step[]);
+            } else if (currentPlayMode !== 'incremental' && allSteps.length > 0) {
+              stepPlayer.startReplay(finalResult.data);
             }
           }
         }
