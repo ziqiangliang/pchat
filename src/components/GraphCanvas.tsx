@@ -5,69 +5,11 @@ import {
   CANVAS_HEIGHT,
   NODE_ANIMATION_DURATION,
   ANNOTATION_OFFSET,
-  NODE_PADDING,
-  NODE_MIN_WIDTH,
-  NODE_MAX_WIDTH,
-  NODE_MIN_HEIGHT,
-  NODE_MAX_HEIGHT,
-  NODE_DEFAULT_HEIGHT,
-  NODE_LINE_HEIGHT_RATIO,
-  NODE_CHAR_WIDTH_CHINESE,
-  NODE_CHAR_WIDTH_ENGLISH,
   DEFAULT_NODE_RADIUS
 } from '../config';
+import { calculateNodeWidth, calculateNodeHeight } from '../utils/nodeLabelMetrics';
 import { layoutOptimizer } from '../engines/layoutOptimizer';
 import { useCanvasGesture } from '../hooks/useCanvasGesture';
-
-function isChineseChar(char: string): boolean {
-  return /[\u4e00-\u9fa5]/.test(char);
-}
-
-function calculateTextWidth(label: string, fontSize: number): number {
-  if (!label) return 0;
-
-  let textWidth = 0;
-  for (const char of label) {
-    if (isChineseChar(char)) {
-      textWidth += fontSize * NODE_CHAR_WIDTH_CHINESE;
-    } else {
-      textWidth += fontSize * NODE_CHAR_WIDTH_ENGLISH;
-    }
-  }
-
-  return textWidth;
-}
-
-function calculateNodeWidth(label: string, fontSize: number): number {
-  if (!label) return NODE_MIN_WIDTH;
-
-  const textWidth = calculateTextWidth(label, fontSize);
-  const width = textWidth + NODE_PADDING * 2;
-
-  return Math.max(NODE_MIN_WIDTH, width);
-}
-
-function calculateNodeHeight(label: string, fontSize: number): number {
-  if (!label) return NODE_DEFAULT_HEIGHT;
-
-  const lineHeight = fontSize * NODE_LINE_HEIGHT_RATIO;
-  const textWidth = calculateTextWidth(label, fontSize);
-  const singleLineWidth = textWidth + NODE_PADDING * 2;
-
-  if (singleLineWidth <= NODE_MAX_WIDTH) {
-    const height = lineHeight + NODE_PADDING * 2;
-    return Math.max(NODE_MIN_HEIGHT, Math.min(height, NODE_MAX_HEIGHT));
-  }
-
-  const avgCharWidth = fontSize * 0.8;
-  const usableWidth = NODE_MAX_WIDTH - NODE_PADDING * 2;
-  const charsPerLine = Math.max(1, Math.floor(usableWidth / avgCharWidth));
-  const lines = Math.ceil(label.length / charsPerLine);
-
-  const height = lines * lineHeight + NODE_PADDING * 2;
-
-  return Math.max(NODE_MIN_HEIGHT, Math.min(height, NODE_MAX_HEIGHT));
-}
 
 interface GraphCanvasProps {
   dsl: DSL | null;

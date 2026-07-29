@@ -37,5 +37,8 @@ dist-ssr
 # Test coverage
 coverage
 
+# Evaluator run outputs (batch / tune reports & raw DSL)
+evaluator/results/
+
 # OS files
 Thumbs.db

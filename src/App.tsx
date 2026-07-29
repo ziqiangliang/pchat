@@ -11,10 +11,19 @@ import { MobileBallControl } from './components/MobileBallControl';
 import { ttsService } from './services/ttsService';
 import { ttsManager } from './services/ttsManager';
 import { safeParseDSL, extractStreamingSteps } from './utils/jsonParser';
+import { postProcessDSL } from './utils/dslPostProcessor';
 import { useGraphControls } from './hooks/useGraphControls';
-import { DSL_SYSTEM_PROMPT } from './config/prompts';
+import { buildDSLSystemPrompt } from './config/prompts';
+import { DEFAULT_PROMPT_TUNE_PARAMS, DEFAULT_POST_PROCESS_CONFIG } from './config/promptTune';
 import { LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_THINKING } from './config/api';
 import './index.css';
+
+function applyDslPostProcess(dsl: DSL, question: string): DSL {
+  return postProcessDSL(dsl, DEFAULT_POST_PROCESS_CONFIG, {
+    question,
+    maxSteps: DEFAULT_PROMPT_TUNE_PARAMS.maxSteps,
+  }).dsl;
+}
 
 function App() {
   const { t } = useTranslation();
@@ -103,7 +112,7 @@ function App() {
     }
 
     resetGraphState();
-    setDsl(result.data!);
+    setDsl(applyDslPostProcess(result.data!, ''));
     setShowJsonPanel(false);
     setPastedJson('');
     stepPlayer.startReplay(result.data!);
@@ -130,6 +139,7 @@ function App() {
     };
 
     setChatHistory(prev => [...(Array.isArray(prev) ? prev : []), newUserMessage]);
+    const question = userInput;
     setUserInput('');
     setLoadingStartTime(Date.now());
     setIsLoading(true);
@@ -149,8 +159,8 @@ function App() {
           messages: [
             {
               role: 'system',
-              content: DSL_SYSTEM_PROMPT.replace(
-                '{{LANGUAGE_CONSTRAINT}}',
+              content: buildDSLSystemPrompt(
+                DEFAULT_PROMPT_TUNE_PARAMS,
                 i18n.language === 'en' ? '\n必须用英文回答所有 text 字段的内容' : ''
               )
             },
@@ -160,7 +170,7 @@ function App() {
             })),
             {
               role: 'user',
-              content: userInput
+              content: question
             }
           ]
         })
@@ -232,9 +242,9 @@ function App() {
                   const { completedSteps } = extractStreamingSteps(actualContent);
 
                   if (completedSteps.length > 0) {
-                    const partialDsl: DSL = {
+                    const partialDsl: DSL = applyDslPostProcess({
                       steps: completedSteps as any[]
-                    };
+                    }, question);
                     setDsl(partialDsl);
 
                     if (lastParsedStepsCount === 0 && completedSteps.length > 0) {
@@ -260,9 +270,10 @@ function App() {
         if (actualContent) {
           const finalResult = safeParseDSL(actualContent);
           if (finalResult.success && finalResult.data) {
-            setDsl(finalResult.data);
+            const processedDsl = applyDslPostProcess(finalResult.data, question);
+            setDsl(processedDsl);
 
-            const displayText = finalResult.data.steps.map((s: any) => s.text).join('\n');
+            const displayText = processedDsl.steps.map((s: any) => s.text).join('\n');
             if (assistantMessageId) {
               setChatHistory(prev => {
                 const updatedHistory = [...prev];
@@ -280,13 +291,13 @@ function App() {
             }
 
             const currentPlayMode = useStore.getState().playMode;
-            const allSteps = finalResult.data.steps;
+            const allSteps = processedDsl.steps;
 
             if (currentPlayMode === 'incremental' && allSteps.length > lastParsedStepsCount) {
               const remainingSteps = allSteps.slice(lastParsedStepsCount);
               stepPlayer.addStepsToQueue(remainingSteps as Step[]);
             } else if (currentPlayMode !== 'incremental' && allSteps.length > 0) {
-              stepPlayer.startReplay(finalResult.data);
+              stepPlayer.startReplay({ ...processedDsl, steps: allSteps });
             }
           }
         }
