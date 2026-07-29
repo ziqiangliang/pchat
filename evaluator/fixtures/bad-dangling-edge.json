@@ -1,0 +1,20 @@
+{
+  "title": "错误示例",
+  "steps": [
+    {
+      "text": "第一步添加了所有节点",
+      "add": [
+        { "id": "a", "label": "A", "type": "concept", "x": 100, "y": 100 },
+        { "id": "b", "label": "B", "type": "concept", "x": 110, "y": 110 },
+        { "id": "c", "label": "C", "type": "concept", "x": 900, "y": 600 }
+      ],
+      "connect": [
+        { "from": "a", "to": "missing", "label": "坏边", "type": "arrow" }
+      ]
+    },
+    {
+      "text": "第二步没有动作",
+      "highlight": ["ghost"]
+    }
+  ]
+}

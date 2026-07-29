@@ -102,45 +102,25 @@ npm run preview
 ```
 src/
 ├── components/           # React components
-│   ├── ChatInterface.tsx          # Main chat interface
-│   ├── DraggablePlaybackControls.tsx # Draggable playback controls
-│   ├── GraphCanvas.tsx             # SVG canvas renderer
-│   ├── PlaybackControls.tsx       # Animation playback controls
-│   └── SmartChatInterface.tsx     # AI chat interface
-├── config/               # Configuration constants
-│   ├── config.ts                    # App configuration
-│   ├── prompts.ts                   # AI prompts
-│   └── index.ts
-├── engines/              # Core engines
-│   ├── SmartChatEngine.ts           # AI conversation engine
-│   ├── annotationEngine.ts          # Annotation positioning
-│   ├── layoutOptimizer.ts           # Layout optimization
-│   ├── layoutSolver.ts              # Layout algorithms
-│   ├── renderEngine.ts              # Rendering logic
-│   └── stepPlayer.ts                # Animation step player
-├── hooks/                # Custom React hooks
-│   ├── useCanvasGesture.ts          # Canvas gesture handling
-│   ├── useGraphControls.ts          # Graph control hooks
-│   └── useSmartChat.ts              # Smart chat hooks
-├── i18n/                 # Internationalization
-│   ├── locales/
-│   │   ├── en.json                  # English translations
-│   │   └── zh.json                  # Chinese translations
-│   └── index.ts
-├── services/             # External services
-│   └── ttsService.ts                 # Text-to-speech service
-├── stores/               # State management (Zustand)
-│   ├── blackboardState.ts            # Canvas state
-│   ├── smartChatStore.ts              # Chat session state
-│   └── store.ts
-├── types/                # TypeScript type definitions
-│   └── index.ts
-├── utils/                # Utility functions
-│   ├── instructionTransformer.ts     # Instruction transformation
-│   └── jsonParser.ts                 # JSON parsing utilities
-├── App.tsx               # Root component
-├── index.css             # Global styles
-└── main.tsx              # Entry point
+├── config/               # App + prompt / promptTune config
+├── engines/              # Layout, render, step player
+├── evaluator/            # DSL scoring, batch pipeline, prompt tune
+├── hooks/
+├── i18n/
+├── services/
+├── stores/
+├── types/
+├── utils/                # DSL post-process, label metrics, parsers
+├── App.tsx
+└── main.tsx
+evaluator/
+├── benchmarkCases.ts     # Benchmark questions
+├── fixtures/             # Sample DSL fixtures
+└── results/              # Eval outputs (gitignored)
+scripts/
+├── eval-dsl.ts           # Score one DSL file
+├── eval-batch.ts         # Batch benchmark
+└── eval-tune.ts          # Prompt auto-tune loop
 ```
 
 ## 🛠️ Tech Stack
@@ -161,6 +141,53 @@ The `LayoutSolver` supports multiple layout types:
 - **Flow Layout** - Hierarchical flowcharts with level-based spacing
 - **Network Layout** - Radial network diagrams with root node offset
 - **Data Layout** - Bar charts for data visualization
+
+## 🧪 DSL Evaluator
+
+Offline tooling to score LLM-generated visualization DSL (parse / schema / semantic / layout / pedagogy), batch-run benchmark questions, and iteratively tune the system prompt.
+
+### Layout checks
+
+Beyond node placement, the evaluator also detects:
+
+- **Node label overlap** (`LABEL_OVERLAP`)
+- **Edge label overlap** (`EDGE_LABEL_OVERLAP`) — edge labels are drawn at the midpoint in `GraphCanvas`
+- **Edge ↔ node label overlap** (`EDGE_NODE_LABEL_OVERLAP`)
+
+### Commands
+
+Requires a configured `.env` (same LLM settings as the app).
+
+```bash
+# Score a single DSL file (or --stdin)
+npm run eval:dsl -- path/to/dsl.json
+npm run eval:dsl -- path/to/dsl.json --json
+
+# Full benchmark (13 cases) → writes under evaluator/results/
+npm run eval:batch
+npm run eval:batch -- --quick          # subset of cases
+npm run eval:batch -- --open           # open-ended cases only
+npm run eval:batch -- tcp              # single case by id
+npm run eval:batch -- --no-retry
+
+# Auto-tune prompt params from eval issues (default up to 5 iterations)
+npm run eval:tune
+TUNE_MAX_ITERATIONS=3 npm run eval:tune
+npm run eval:tune -- --quick
+```
+
+### Layout
+
+| Path | Role |
+|------|------|
+| `src/evaluator/` | Core scoring, pipeline, metrics, prompt tune analyzer |
+| `src/config/promptTune.ts` | Tunable prompt / post-process defaults |
+| `evaluator/benchmarkCases.ts` | Benchmark questions |
+| `evaluator/fixtures/` | Static sample DSL for local checks |
+| `evaluator/results/` | Run outputs (`batch-*`, `tune-*`); **gitignored** |
+| `scripts/eval-*.ts` | CLI entrypoints |
+
+Each batch/tune run creates a directory like `evaluator/results/batch-<promptHash>-<timestamp>/` with `report.json` and `raw/*.txt` + `raw/*.processed.json`.
 
 ## 📖 Key Concepts
 

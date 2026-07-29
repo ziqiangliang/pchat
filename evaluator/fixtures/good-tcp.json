@@ -1,0 +1,32 @@
+{
+  "title": "TCP 三次握手",
+  "meta": { "domain": "software_engineering" },
+  "layoutHints": { "type": "flow" },
+  "steps": [
+    {
+      "text": "客户端向服务器发送 SYN，请求建立连接。",
+      "add": [
+        { "id": "client", "label": "客户端", "type": "concept", "x": 150, "y": 250 },
+        { "id": "server", "label": "服务器", "type": "concept", "x": 650, "y": 250 }
+      ],
+      "connect": [
+        { "from": "client", "to": "server", "label": "SYN", "type": "arrow" }
+      ],
+      "highlight": ["client"]
+    },
+    {
+      "text": "服务器回复 SYN-ACK，确认收到请求。",
+      "connect": [
+        { "from": "server", "to": "client", "label": "SYN-ACK", "type": "arrow" }
+      ],
+      "highlight": ["server"]
+    },
+    {
+      "text": "客户端发送 ACK，连接建立完成。",
+      "connect": [
+        { "from": "client", "to": "server", "label": "ACK", "type": "arrow" }
+      ],
+      "highlight": ["client", "server"]
+    }
+  ]
+}
